@@ -1,0 +1,12 @@
+@extends('layouts.app')
+@section('title', 'Finanzas personales')
+@section('content')
+<div class="page-heading"><div><p class="eyebrow">{{ ucfirst($monthLabel) }}</p><h1>Finanzas personales</h1><p class="muted">Tus ingresos y gastos personales, separados del negocio.</p></div><a class="button button-primary" href="{{ route('movements.index') }}#nuevo">+ <span>Registrar movimiento</span></a></div>
+<section class="metric-grid metric-grid-three"><article class="metric-card metric-main"><div class="metric-label">Ingresos personales</div><div class="metric-value">${{ number_format($income, 0, ',', '.') }}</div><div class="metric-foot">Registrados en el mes</div></article><article class="metric-card"><div class="metric-label">Gastos personales</div><div class="metric-value">${{ number_format($expenses, 0, ',', '.') }}</div><div class="metric-foot">Registrados en el mes</div></article><article class="metric-card"><div class="metric-label">Balance del mes</div><div class="metric-value">${{ number_format($income - $expenses, 0, ',', '.') }}</div><div class="metric-foot">Ingresos menos gastos</div></article></section>
+<section class="panel"><div class="panel-heading"><div><h2>Movimientos personales</h2><p>{{ ucfirst($monthLabel) }}</p></div></div>
+    @forelse ($transactions as $movement)
+        <article class="movement-item"><span class="activity-icon {{ $movement->type === 'expense' ? 'is-expense' : '' }}">{{ $movement->type === 'expense' ? '−' : '+' }}</span><div class="movement-detail"><b>{{ $movement->description }}</b><small>{{ $movement->date->format('d/m/Y') }}{{ $movement->category ? ' · '.$movement->category : '' }}</small></div><span class="state-tag {{ $movement->type === 'income' ? 'state-active' : 'state-paused' }}">{{ $movement->type === 'income' ? 'Ingreso' : 'Gasto' }}</span><b class="activity-amount {{ $movement->type === 'expense' ? 'negative' : '' }}">${{ number_format((float) $movement->amount, 0, ',', '.') }}</b></article>
+    @empty <div class="empty-state">No hay movimientos personales para este mes. <a class="text-link" href="{{ route('movements.index') }}#nuevo">Cargá el primero →</a></div> @endforelse
+</section>
+<p class="privacy-note">Si retirás dinero del negocio para uso personal, registrá el egreso del negocio y el ingreso personal por separado.</p>
+@endsection
