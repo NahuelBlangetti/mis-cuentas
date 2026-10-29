@@ -12,6 +12,21 @@ Aplicación privada para administrar clientes, abonos mensuales, cobros, movimie
 - Resumen mensual, saldo pendiente, finanzas personales y exportación de movimientos a CSV.
 - Cinco clientes de ejemplo cargados al crear la cuenta: cuatro por $27.500 y uno por $42.500 con dos sistemas. Cambiá sus nombres y vencimientos al ingresar.
 
+## Cómo se calcula lo pendiente
+
+- Cada cliente activo genera un abono por mes con el monto vigente en ese momento. Si cambiás el abono, el nuevo monto rige desde el mes actual y los meses anteriores conservan el suyo.
+- Cada cobro se imputa al mes que elegís en "Mes que paga", aunque la fecha de cobro sea otra. La fecha define en qué mes aparece el ingreso en los movimientos.
+- Lo pendiente es la suma, cliente por cliente y mes por mes, de lo que falta cobrar. Incluye la deuda de meses anteriores. Si un cliente paga de más, el excedente no reduce la deuda de otro cliente ni la de otro mes.
+- Al pausar un cliente, el mes actual deja de cobrarse si todavía no tenía pagos; la deuda anterior se mantiene. Al reactivarlo, vuelve a cobrarse desde ese mes y los meses en pausa no generan deuda.
+
+## Tests
+
+Los tests usan SQLite en memoria, así que necesitan la extensión `pdo_sqlite`:
+
+```bash
+php artisan test
+```
+
 ## Requisitos
 
 - PHP 8.2 o superior con extensiones habituales de Laravel, incluida `pdo_mysql`.
@@ -57,3 +72,38 @@ Abrí la URL local que informa Artisan. El comando `app:create-owner` pide nombr
 6. En Android, abrí el sitio en Chrome y elegí **Instalar app** o **Agregar a pantalla de inicio**. En iPhone, abrilo en Safari, tocá **Compartir** y luego **Agregar a pantalla de inicio**.
 
 Si el hosting no permite SSH o Composer, instalá las dependencias en una máquina con Composer y subí también `vendor/`. Conservá `composer.lock` para repetir las mismas versiones. Antes de usarla con datos reales, verificá que el proveedor permita configurar el document root hacia `public/` y hacer copias de seguridad de MySQL.
+
+## Copias de seguridad
+
+La base MySQL es el único registro de tus cobros. El CSV de movimientos sirve para revisar números, pero no es un backup: no incluye clientes ni abonos.
+
+1. Guardá las credenciales de la base en `~/.my.cnf` (fuera de `public/`) con permisos `600`, para no escribir la contraseña en el cron:
+
+   ```ini
+   [client]
+   user=USUARIO_DE_LA_BASE
+   password=CONTRASEÑA
+   ```
+
+2. Creá el script `~/bin/backup-mis-cuentas.sh` (fuera de `public/`) y dale permisos con `chmod 700`. Guarda un archivo comprimido por día y borra los de más de 30 días. Si `mysqldump` falla, `pipefail` corta el script y el archivo a medias no reemplaza a ningún backup:
+
+   ```bash
+   #!/usr/bin/env bash
+   set -euo pipefail
+   mkdir -p ~/backups
+   destino=~/backups/mis-cuentas-$(date +%F).sql.gz
+   mysqldump --single-transaction --no-tablespaces NOMBRE_DE_LA_BASE | gzip > "$destino.tmp"
+   mv "$destino.tmp" "$destino"
+   find ~/backups -name 'mis-cuentas-*.sql.gz' -mtime +30 -delete
+   ```
+
+   Programá un cron diario desde el panel del hosting que ejecute `~/bin/backup-mis-cuentas.sh` y te avise por correo si sale con error.
+
+3. Una vez por semana, descargá el último archivo a tu computadora o a un almacenamiento externo. Una copia que vive solo en el mismo hosting se pierde junto con él.
+4. Antes de cargar datos reales, y después cada tanto, probá restaurar una copia en una base vacía y abrí la app contra ella:
+
+   ```bash
+   gunzip < ~/backups/mis-cuentas-AAAA-MM-DD.sql.gz | mysql NOMBRE_DE_UNA_BASE_DE_PRUEBA
+   ```
+
+Si el hosting no ofrece cron ni `mysqldump`, usá las copias automáticas del panel y descargá una exportación de phpMyAdmin cada semana.

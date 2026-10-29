@@ -17,4 +17,5 @@ class Client extends Model
 
     public function user(): BelongsTo { return $this->belongsTo(User::class); }
     public function transactions(): HasMany { return $this->hasMany(Transaction::class); }
+    public function charges(): HasMany { return $this->hasMany(Charge::class); }
 }

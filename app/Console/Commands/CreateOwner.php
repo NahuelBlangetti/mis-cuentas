@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\User;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 
 class CreateOwner extends Command
@@ -35,14 +36,17 @@ class CreateOwner extends Command
             return self::FAILURE;
         }
 
-        $owner = User::query()->create(['name' => $name, 'email' => $email, 'password' => Hash::make($password)]);
-        $examples = [
-            ['Cliente 1', 1, 27500], ['Cliente 2', 1, 27500], ['Cliente 3', 1, 27500],
-            ['Cliente 4', 1, 27500], ['Cliente 5', 2, 42500],
-        ];
-        foreach ($examples as [$clientName, $systems, $fee]) {
-            $owner->clients()->create(['name' => $clientName, 'systems' => $systems, 'monthly_fee' => $fee, 'due_day' => 10]);
-        }
+        // Todo o nada: si falla a mitad no queda una cuenta sin clientes que impida volver a correr el comando.
+        DB::transaction(function () use ($name, $email, $password) {
+            $owner = User::query()->create(['name' => $name, 'email' => $email, 'password' => Hash::make($password)]);
+            $examples = [
+                ['Cliente 1', 1, 27500], ['Cliente 2', 1, 27500], ['Cliente 3', 1, 27500],
+                ['Cliente 4', 1, 27500], ['Cliente 5', 2, 42500],
+            ];
+            foreach ($examples as [$clientName, $systems, $fee]) {
+                $owner->clients()->create(['name' => $clientName, 'systems' => $systems, 'monthly_fee' => $fee, 'due_day' => 10]);
+            }
+        });
 
         $this->components->info('Cuenta creada. Se cargaron cinco clientes de ejemplo; podés editar sus nombres y vencimientos.');
         return self::SUCCESS;

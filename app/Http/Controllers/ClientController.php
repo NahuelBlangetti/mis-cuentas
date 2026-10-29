@@ -3,9 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Models\Client;
+use App\Services\Billing;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class ClientController extends Controller
@@ -14,10 +17,12 @@ class ClientController extends Controller
     {
         $user = request()->user();
         $month = Carbon::now()->format('Y-m');
-        $clients = $user->clients()->with(['transactions' => fn ($q) => $q->where('billing_month', $month)])->orderByDesc('active')->orderBy('name')->get();
+        Billing::sync($user);
+        $clients = $user->clients()->withCount(['transactions' => fn ($q) => $q->where('billing_month', $month)])->orderByDesc('active')->orderBy('name')->get();
         $active = $clients->where('active', true);
         return view('clients.index', [
-            'clients' => $clients, 'activeCount' => $active->count(), 'systemsCount' => $active->sum('systems'),
+            'clients' => $clients, 'balances' => Billing::balances($user, $month), 'month' => $month,
+            'activeCount' => $active->count(), 'systemsCount' => $active->sum('systems'), 'paymentsCount' => $clients->sum('transactions_count'),
             'monthlyTotal' => (float) $active->sum('monthly_fee'), 'monthLabel' => Carbon::now()->locale('es')->translatedFormat('F Y'),
         ]);
     }
@@ -32,13 +37,22 @@ class ClientController extends Controller
     {
         abort_unless($client->user_id === $request->user()->id, 404);
         $client->update($request->validate($this->rules()));
+        // El nuevo abono rige desde el mes actual; los meses anteriores conservan el monto que tenían.
+        if ($client->wasChanged('monthly_fee')) $client->charges()->where('billing_month', Carbon::now()->format('Y-m'))->update(['amount' => $client->monthly_fee]);
         return back()->with('success', 'Cliente actualizado.');
     }
 
     public function toggle(Request $request, Client $client): RedirectResponse
     {
         abort_unless($client->user_id === $request->user()->id, 404);
-        $client->update(['active' => ! $client->active]);
+        $client = DB::transaction(function () use ($request, $client) {
+            // Pausar y cobrar bloquean al cliente: un cobro simultáneo no puede quedar sin el abono que paga.
+            $client = Client::query()->lockForUpdate()->findOrFail($client->id);
+            Billing::sync($request->user());
+            $client->update(['active' => ! $client->active]);
+            $client->active ? Billing::resume($client) : Billing::pause($client);
+            return $client;
+        });
         return back()->with('success', $client->active ? 'Cliente reactivado.' : 'Cliente pausado.');
     }
 
@@ -49,11 +63,21 @@ class ClientController extends Controller
             'amount' => ['required', 'numeric', 'min:0.01', 'max:9999999999'],
             'date' => ['required', 'date'], 'billing_month' => ['required', 'date_format:Y-m'],
         ]);
-        $request->user()->transactions()->create([
-            'client_id' => $client->id, 'type' => 'income', 'area' => 'business',
-            'description' => 'Abono · '.$client->name, 'category' => 'Abono de cliente',
-            'amount' => $input['amount'], 'date' => $input['date'], 'billing_month' => $input['billing_month'],
-        ]);
+        DB::transaction(function () use ($request, $client, $input) {
+            $client = Client::query()->lockForUpdate()->findOrFail($client->id);
+            $month = Carbon::now()->format('Y-m');
+            Billing::sync($request->user());
+            // Solo se aceptan los meses que ofrece el formulario, calculados con el cliente ya bloqueado.
+            $allowed = Billing::paymentMonths(Billing::balances($request->user(), $month)[$client->id], $month, $client->active);
+            if (! array_key_exists($input['billing_month'], $allowed)) {
+                throw ValidationException::withMessages(['billing_month' => $client->active ? 'Elegí un mes adeudado, el actual o el siguiente.' : 'Un cliente pausado solo puede pagar meses adeudados.']);
+            }
+            $request->user()->transactions()->create([
+                'client_id' => $client->id, 'type' => 'income', 'area' => 'business',
+                'description' => 'Abono · '.$client->name, 'category' => 'Abono de cliente',
+                'amount' => $input['amount'], 'date' => $input['date'], 'billing_month' => $input['billing_month'],
+            ]);
+        });
         return back()->with('success', 'Cobro registrado.');
     }
 

@@ -5,3 +5,12 @@
 @media(max-width:390px){.page-heading>.button span{display:none}.metric-card{padding:12px}.metric-value{font-size:18px}.client-numbers b{font-size:10px}.client-title p{font-size:9px}}
 .heading-tools{display:flex;align-items:center;gap:12px}
 @media(max-width:700px){.heading-tools{gap:8px}.heading-tools .text-link{font-size:9px}}
+.payment-form select{width:100%;height:36px;border:1px solid var(--line);border-radius:8px;padding:7px 8px;background:#fff;font-size:12px}
+.payment-form .payment-month{flex:1 1 100%}
+.billing-sum>.arrears{display:block;font-size:9px;margin-top:2px}
+.client-debt{margin:-4px 0 12px;font-size:11px;font-weight:650}
+[hidden]{display:none!important}
+.edit-button{width:28px;height:28px;font-size:14px}
+.pager{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-top:1px solid #f0f2f0;color:var(--muted);font-size:11px}
+.form-submit{gap:8px}
+.field input[type=date],.payment-form input[type=date]{min-width:0}

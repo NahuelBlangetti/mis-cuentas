@@ -23,6 +23,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/movimientos', [MovementController::class, 'index'])->name('movements.index');
     Route::get('/movimientos/exportar.csv', [MovementController::class, 'export'])->name('movements.export');
     Route::post('/movimientos', [MovementController::class, 'store'])->name('movements.store');
-    Route::delete('/movimientos/{transaction}', [MovementController::class, 'destroy'])->name('movements.destroy');
+    Route::put('/movimientos/{transaction}', [MovementController::class, 'update'])->name('movements.update');
+    Route::delete('/movimientos/{transaction}',[MovementController::class, 'destroy'])->name('movements.destroy');
     Route::get('/finanzas-personales', [MovementController::class, 'personal'])->name('personal.index');
 });
