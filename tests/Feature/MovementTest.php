@@ -63,6 +63,64 @@ class MovementTest extends TestCase
         $this->assertSame(['income', 'business', '2026-09', 'Abono septiembre', '20000.00'], [$payment->type, $payment->area, $payment->billing_month, $payment->description, $payment->amount]);
     }
 
+    public function test_un_movimiento_puede_ser_de_un_cliente_ocasional(): void
+    {
+        $this->actingAs($this->user)->post(route('movements.store'), [
+            'type' => 'income', 'area' => 'business', 'client' => 'occasional', 'client_name' => 'Kiosco Centro', 'description' => 'Instalación', 'amount' => 50000, 'date' => '2026-10-05',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $movement = Transaction::sole();
+        $this->assertSame([null, 'Kiosco Centro', null, 'Kiosco Centro (ocasional)'], [$movement->client_id, $movement->client_name, $movement->billing_month, $movement->clientLabel()]);
+        $this->actingAs($this->user)->get(route('movements.index'))->assertSee('Kiosco Centro (ocasional)');
+        $this->assertStringContainsString('"Kiosco Centro (ocasional)"', $this->actingAs($this->user)->get(route('movements.export'))->getContent());
+
+        $this->actingAs($this->user)->post(route('movements.store'), [
+            'type' => 'income', 'area' => 'business', 'client' => 'occasional', 'description' => 'Sin nombre', 'amount' => 1, 'date' => '2026-10-05',
+        ])->assertSessionHasErrors('client_name');
+    }
+
+    public function test_un_trabajo_extra_de_un_cliente_registrado_no_salda_su_abono(): void
+    {
+        $client = $this->user->clients()->create(['name' => 'Cliente', 'systems' => 1, 'monthly_fee' => 27500, 'due_day' => 10]);
+
+        $this->actingAs($this->user)->post(route('movements.store'), [
+            'type' => 'income', 'area' => 'business', 'client' => (string) $client->id, 'client_name' => 'Ignorado', 'description' => 'Reporte a medida', 'amount' => 30000, 'date' => '2026-10-05',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $movement = Transaction::sole();
+        $this->assertSame([$client->id, null, null], [$movement->client_id, $movement->client_name, $movement->billing_month]);
+        $this->actingAs($this->user)->get(route('clients.index'))->assertOk();
+        $this->assertEquals(27500, \App\Services\Billing::balances($this->user, '2026-10')[$client->id]['total']);
+    }
+
+    public function test_no_se_puede_asignar_un_cliente_ajeno_y_lo_personal_no_lleva_cliente(): void
+    {
+        $other = User::factory()->create()->clients()->create(['name' => 'Ajeno', 'systems' => 1, 'monthly_fee' => 1000, 'due_day' => 10]);
+        $mine = $this->user->clients()->create(['name' => 'Propio', 'systems' => 1, 'monthly_fee' => 1000, 'due_day' => 10]);
+
+        $this->actingAs($this->user)->post(route('movements.store'), [
+            'type' => 'income', 'area' => 'business', 'client' => (string) $other->id, 'description' => 'Intento', 'amount' => 1, 'date' => '2026-10-05',
+        ])->assertSessionHasErrors('client');
+        $this->actingAs($this->user)->post(route('movements.store'), [
+            'type' => 'expense', 'area' => 'personal', 'client' => (string) $mine->id, 'description' => 'Super', 'amount' => 1, 'date' => '2026-10-05',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertNull(Transaction::sole()->client_id);
+    }
+
+    public function test_se_puede_cambiar_el_cliente_de_un_trabajo_extra(): void
+    {
+        $client = $this->user->clients()->create(['name' => 'Cliente', 'systems' => 1, 'monthly_fee' => 1000, 'due_day' => 10]);
+        $movement = $this->movement(['type' => 'income', 'client_id' => $client->id, 'description' => 'Extra']);
+
+        $this->actingAs($this->user)->put(route('movements.update', $movement), [
+            'type' => 'income', 'area' => 'business', 'client' => 'occasional', 'client_name' => 'Vecino', 'description' => 'Extra', 'amount' => 5000, 'date' => '2026-10-02',
+        ])->assertSessionHasNoErrors();
+
+        $movement->refresh();
+        $this->assertSame([null, 'Vecino'], [$movement->client_id, $movement->client_name]);
+    }
+
     public function test_no_se_puede_editar_ni_borrar_un_movimiento_de_otro_usuario(): void
     {
         $other = User::factory()->create()->transactions()->create(['type' => 'expense', 'area' => 'business', 'description' => 'Ajeno', 'amount' => 100, 'date' => '2026-10-01']);

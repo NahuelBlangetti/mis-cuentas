@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Client extends Model
 {
-    protected $fillable = ['name', 'systems', 'monthly_fee', 'due_day', 'active', 'notes'];
+    protected $fillable = ['name', 'phone', 'systems', 'monthly_fee', 'due_day', 'active', 'notes'];
 
     protected function casts(): array
     {

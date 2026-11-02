@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    // Alias para transferir que se incluye en el mensaje de cobro por WhatsApp.
+    'transfer' => [
+        'alias' => env('TRANSFER_ALIAS', 'BLANGETTI.NAHUEL'),
+    ],
+
 ];

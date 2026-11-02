@@ -8,9 +8,9 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="manifest" href="{{ route('pwa.manifest') }}">
-    <link rel="icon" href="{{ asset('icon.svg') }}" type="image/svg+xml">
-    <link rel="apple-touch-icon" href="{{ asset('icon-180.png') }}">
-    <link rel="stylesheet" href="{{ asset('css/app.css') }}">
+    <link rel="icon" href="{{ asset_version('icon.svg') }}" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="{{ asset_version('icon-180.png') }}">
+    <link rel="stylesheet" href="{{ asset_version('css/app.css') }}">
     <title>@yield('title', 'Mis cuentas') · Mis cuentas</title>
 </head>
 <body>
@@ -46,6 +46,6 @@
 @else
     @yield('content')
 @endauth
-<script src="{{ asset('js/app.js') }}" defer></script>
+<script src="{{ asset_version('js/app.js') }}" defer></script>
 </body>
 </html>

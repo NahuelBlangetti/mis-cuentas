@@ -6,6 +6,7 @@
     const method = document.getElementById('client-method');
     const fields = {
         name: document.getElementById('client-name'),
+        phone: document.getElementById('client-phone'),
         systems: document.getElementById('client-systems'),
         fee: document.getElementById('client-fee'),
         due: document.getElementById('client-due'),
@@ -18,6 +19,7 @@
         method.value = 'POST';
         title.textContent = 'Agregar cliente';
         fields.name.value = '';
+        fields.phone.value = '';
         fields.systems.value = '1';
         fields.fee.value = '';
         fields.due.value = '10';
@@ -32,6 +34,7 @@
         method.value = 'PUT';
         title.textContent = 'Editar cliente';
         fields.name.value = button.dataset.name || '';
+        fields.phone.value = button.dataset.phone || '';
         fields.systems.value = button.dataset.systems || '1';
         fields.fee.value = button.dataset.fee || '';
         fields.due.value = button.dataset.due || '10';
@@ -52,15 +55,37 @@
     const movementTitle = document.getElementById('movement-form-title');
     const movementCancel = document.querySelector('[data-cancel-movement]');
     const storeMovementUrl = movementForm?.action;
+    const clientField = movementForm?.querySelector('[data-client-field]');
+    const clientNameField = movementForm?.querySelector('[data-client-name-field]');
+
+    // El cliente solo aplica al negocio; el nombre se pide solo para un cliente ocasional.
+    // Un campo oculto queda deshabilitado para que no se envíe.
+    const syncClientFields = () => {
+        if (!movementForm) return;
+        const { area, client, client_name: clientName } = movementForm.elements;
+        const locked = area.disabled;
+        clientField.hidden = locked || area.value !== 'business';
+        client.disabled = clientField.hidden;
+        clientNameField.hidden = clientField.hidden || client.value !== 'occasional';
+        clientName.disabled = clientNameField.hidden;
+        clientName.required = !clientNameField.hidden;
+    };
+    movementForm?.elements.area.addEventListener('change', syncClientFields);
+    movementForm?.elements.client.addEventListener('change', () => {
+        syncClientFields();
+        if (movementForm.elements.client.value === 'occasional') movementForm.elements.client_name.focus();
+    });
+    syncClientFields();
 
     document.querySelectorAll('[data-edit-movement]').forEach((button) => button.addEventListener('click', () => {
         if (!movementForm) return;
         const data = button.dataset;
         movementForm.action = data.url;
         movementForm.elements._method.value = 'PUT';
-        ['type', 'area', 'description', 'category', 'amount', 'date'].forEach((name) => { movementForm.elements[name].value = data[name] || ''; });
-        // Los cobros de clientes siempre son ingresos del negocio.
+        ['type', 'area', 'description', 'category', 'amount', 'date', 'client', 'client_name'].forEach((name) => { movementForm.elements[name].value = data[name] || ''; });
+        // Los cobros de abonos siempre son ingresos del negocio del mismo cliente.
         movementForm.elements.type.disabled = movementForm.elements.area.disabled = data.payment === '1';
+        syncClientFields();
         movementTitle.textContent = 'Editar movimiento';
         movementCancel.hidden = false;
         movementForm.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -72,6 +97,7 @@
         movementForm.action = storeMovementUrl;
         movementForm.elements._method.value = 'POST';
         movementForm.elements.type.disabled = movementForm.elements.area.disabled = false;
+        syncClientFields();
         movementTitle.textContent = 'Nuevo movimiento';
         movementCancel.hidden = true;
     });

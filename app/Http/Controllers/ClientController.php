@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use App\Services\Billing;
+use App\Services\WhatsApp;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -29,14 +30,14 @@ class ClientController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $request->user()->clients()->create($request->validate($this->rules()));
+        $request->user()->clients()->create($this->validated($request));
         return back()->with('success', 'Cliente agregado.');
     }
 
     public function update(Request $request, Client $client): RedirectResponse
     {
         abort_unless($client->user_id === $request->user()->id, 404);
-        $client->update($request->validate($this->rules()));
+        $client->update($this->validated($request));
         // El nuevo abono rige desde el mes actual; los meses anteriores conservan el monto que tenían.
         if ($client->wasChanged('monthly_fee')) $client->charges()->where('billing_month', Carbon::now()->format('Y-m'))->update(['amount' => $client->monthly_fee]);
         return back()->with('success', 'Cliente actualizado.');
@@ -81,12 +82,16 @@ class ClientController extends Controller
         return back()->with('success', 'Cobro registrado.');
     }
 
-    private function rules(): array
+    private function validated(Request $request): array
     {
-        return [
+        $data = $request->validate([
             'name' => ['required', 'string', 'max:160'], 'systems' => ['required', 'integer', 'min:1', 'max:1000'],
+            'phone' => ['nullable', 'string', 'max:30', function ($attribute, $value, $fail) {
+                if (WhatsApp::normalize($value) === null) $fail('Ingresá el celular con código de área, sin 0 ni 15. Ej. 351 1234567.');
+            }],
             'monthly_fee' => ['required', 'numeric', 'min:0', 'max:9999999999'], 'due_day' => ['required', 'integer', 'min:1', 'max:28'],
             'notes' => ['nullable', 'string', 'max:5000'],
-        ];
+        ]);
+        return [...$data, 'phone' => WhatsApp::normalize($data['phone'] ?? null)];
     }
 }

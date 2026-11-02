@@ -14,3 +14,7 @@
 .pager{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 16px;border-top:1px solid #f0f2f0;color:var(--muted);font-size:11px}
 .form-submit{gap:8px}
 .field input[type=date],.payment-form input[type=date]{min-width:0}
+.field-hint{color:var(--muted);font-size:10px;line-height:1.35}
+.button-whatsapp{background:#e7f6ec;border-color:#bfe3cb;color:#1c6b3a}.button-whatsapp:hover{background:#d9f0e1;border-color:#9fd2b0}
+.client-actions{flex-wrap:wrap;align-items:center}.client-hint{margin-right:auto;color:var(--muted);font-size:10px}
+.whatsapp-button{flex:none;width:30px;height:30px;font-size:15px;color:#1c6b3a;background:#e7f6ec}.whatsapp-button:hover{background:#d9f0e1;border-color:#bfe3cb}
