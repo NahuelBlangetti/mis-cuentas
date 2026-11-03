@@ -6,6 +6,21 @@ Estado: preparado en código; configuración externa pendiente. No se configurar
 
 Crear el sitio Laravel con PHP 8.3 o superior y web root `/public`. Conservar el script generado por Forge y sus macros de creación/activación de releases cuando estén habilitadas. No reemplazarlo por un script para despliegues tradicionales.
 
+El proyecto no tiene build de frontend: no hay `package.json` y los assets de `public/css` y `public/js` se versionan tal cual. Borrar del script de Forge las líneas de npm (`npm ci`, `npm install`, `npm run build`); si quedan, el deploy falla con `EUSAGE` / `ENOENT package.json`. Con releases habilitados, el script queda así:
+
+```bash
+$CREATE_RELEASE()
+
+cd $FORGE_RELEASE_DIRECTORY
+
+$FORGE_COMPOSER install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+$FORGE_PHP artisan optimize
+$FORGE_PHP artisan storage:link
+$FORGE_PHP artisan migrate --force
+
+$ACTIVATE_RELEASE()
+```
+
 Configurar el entorno antes de habilitar el acceso:
 
 ```dotenv
