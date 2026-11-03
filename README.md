@@ -56,6 +56,10 @@ Abrí la URL local que informa Artisan. El comando `app:create-owner` pide nombr
 
 ## Puesta en un hosting
 
+Para desplegar en Forge y restringir el sitio a tu identidad, seguir [la guía de Forge y Cloudflare Access](docs/forge-cloudflare.md). Configurar `OWNER_EMAIL` antes del primer acceso: fuera de local/testing, si está vacío el login queda bloqueado. Si existe una cuenta, debe coincidir con su correo.
+
+Las instalaciones de cada cliente se cargan desde “Instalaciones y bases”. Sus credenciales se guardan cifradas con `APP_KEY`; conservar esa clave entre despliegues y respaldarla de forma privada. Por ahora se registran conexiones: no se consultan métricas ni se inicia sesión como administrador en los sistemas externos.
+
 1. Creá una base MySQL/MariaDB y un usuario exclusivo para esta app.
 2. Subí el proyecto a una carpeta privada de la cuenta del hosting. Configurá el document root del dominio o subdominio para que apunte a la carpeta `public/` de este proyecto. No expongas `.env`, `storage/` ni el resto del código al público.
 3. Creá `.env` a partir de `.env.example`. Configurá `APP_ENV=production`, `APP_DEBUG=false`, `APP_URL=https://tu-dominio`, `SESSION_SECURE_COOKIE=true`, las credenciales de la base y una `APP_KEY` nueva (`php artisan key:generate`). Nunca subas el `.env` de desarrollo.

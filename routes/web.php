@@ -13,9 +13,12 @@ Route::get('/login', [AuthController::class, 'create'])->middleware('guest')->na
 Route::post('/login', [AuthController::class, 'store'])->middleware(['guest', 'throttle:5,1'])->name('login.store');
 Route::post('/logout', [AuthController::class, 'destroy'])->middleware('auth')->name('logout');
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', \App\Http\Middleware\EnsureOwner::class])->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
     Route::get('/clientes', [ClientController::class, 'index'])->name('clients.index');
+    Route::get('/clientes/{client}/instalaciones', [\App\Http\Controllers\ClientInstallationController::class, 'index'])->name('clients.installations.index');
+    Route::post('/clientes/{client}/instalaciones', [\App\Http\Controllers\ClientInstallationController::class, 'store'])->name('clients.installations.store');
+    Route::delete('/clientes/{client}/instalaciones/{installation}', [\App\Http\Controllers\ClientInstallationController::class, 'destroy'])->name('clients.installations.destroy');
     Route::post('/clientes', [ClientController::class, 'store'])->name('clients.store');
     Route::put('/clientes/{client}', [ClientController::class, 'update'])->name('clients.update');
     Route::patch('/clientes/{client}/estado', [ClientController::class, 'toggle'])->name('clients.toggle');

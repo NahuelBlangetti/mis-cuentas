@@ -30,8 +30,8 @@ class ClientController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $request->user()->clients()->create($this->validated($request));
-        return back()->with('success', 'Cliente agregado.');
+        $client = $request->user()->clients()->create($this->validated($request));
+        return redirect()->route('clients.installations.index', $client)->with('success', 'Cliente agregado. Cargá sus instalaciones y bases de producción.');
     }
 
     public function update(Request $request, Client $client): RedirectResponse

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\OwnerAccess;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -14,7 +15,7 @@ class AuthController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $credentials = $request->validate(['email' => ['required', 'email'], 'password' => ['required', 'string']]);
-        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+        if (! OwnerAccess::allows($credentials['email']) || ! Auth::attempt($credentials, $request->boolean('remember'))) {
             return back()->withErrors(['email' => 'El correo o la contraseña no son correctos.'])->onlyInput('email');
         }
         $request->session()->regenerate();

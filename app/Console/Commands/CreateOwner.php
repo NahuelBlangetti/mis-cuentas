@@ -3,6 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
+use App\Services\OwnerAccess;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -23,6 +24,11 @@ class CreateOwner extends Command
         $email = trim((string) $this->ask('Tu correo para iniciar sesión'));
         if ($name === '' || ! filter_var($email, FILTER_VALIDATE_EMAIL)) {
             $this->components->error('Ingresá un nombre y un correo válido.');
+            return self::FAILURE;
+        }
+
+        if (! OwnerAccess::allows($email)) {
+            $this->components->error('Configurá OWNER_EMAIL con este correo antes de crear la cuenta.');
             return self::FAILURE;
         }
 
