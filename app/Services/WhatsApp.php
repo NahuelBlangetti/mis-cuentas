@@ -48,9 +48,9 @@ class WhatsApp
             ."\n\n¿Ves todo correcto o necesitás algo? Estoy a disposición. ¡Gracias!";
     }
 
-    // Abre WhatsApp con el mensaje escrito, listo para enviar al cliente.
-    public static function link(string $phone, string $message): string
+    // Abre el chat de WhatsApp del cliente; con mensaje, lo deja escrito y listo para enviar.
+    public static function link(string $phone, ?string $message = null): string
     {
-        return 'https://wa.me/'.$phone.'?text='.rawurlencode($message);
+        return 'https://wa.me/'.$phone.($message === null ? '' : '?text='.rawurlencode($message));
     }
 }

@@ -6,6 +6,7 @@
     const method = document.getElementById('client-method');
     const fields = {
         name: document.getElementById('client-name'),
+        alias: document.getElementById('client-alias'),
         phone: document.getElementById('client-phone'),
         systems: document.getElementById('client-systems'),
         fee: document.getElementById('client-fee'),
@@ -19,6 +20,7 @@
         method.value = 'POST';
         title.textContent = 'Agregar cliente';
         fields.name.value = '';
+        fields.alias.value = '';
         fields.phone.value = '';
         fields.systems.value = '1';
         fields.fee.value = '';
@@ -34,6 +36,7 @@
         method.value = 'PUT';
         title.textContent = 'Editar cliente';
         fields.name.value = button.dataset.name || '';
+        fields.alias.value = button.dataset.alias || '';
         fields.phone.value = button.dataset.phone || '';
         fields.systems.value = button.dataset.systems || '1';
         fields.fee.value = button.dataset.fee || '';

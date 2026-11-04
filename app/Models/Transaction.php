@@ -18,7 +18,7 @@ class Transaction extends Model
 
     public function clientLabel(): ?string
     {
-        if ($this->client_id) return $this->client?->name;
+        if ($this->client_id) return $this->client?->label();
         return $this->client_name ? $this->client_name.' (ocasional)' : null;
     }
 

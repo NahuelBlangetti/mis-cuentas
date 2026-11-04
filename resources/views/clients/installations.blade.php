@@ -12,7 +12,7 @@
         return $html;
     };
 @endphp
-<div class="page-heading"><div><p class="eyebrow">{{ $client->name }}</p><h1>Instalaciones de producción</h1><p class="muted">Cada sistema, el servidor donde corre y sus bases MySQL/MariaDB con usuario de solo lectura.</p></div><a class="button" href="{{ route('clients.index') }}">Volver a clientes</a></div>
+<div class="page-heading"><div><p class="eyebrow">{{ $client->label() }}</p><h1>Instalaciones de producción</h1><p class="muted">Cada sistema, el servidor donde corre y sus bases MySQL/MariaDB con usuario de solo lectura.</p></div><a class="button" href="{{ route('clients.index') }}">Volver a clientes</a></div>
 @if ($resources->isEmpty())
     <div class="flash success" role="status">Todavía no registraste servidores ni clústeres. <a class="text-link" href="{{ route('infrastructure.index') }}">Cargalos en Infraestructura</a> para vincularlos y no duplicar el costo de un clúster compartido.</div>
 @endif

@@ -18,7 +18,7 @@ class MovementController extends Controller
         if (in_array($request->input('area'), ['business', 'personal'], true)) $query->where('area', $request->input('area'));
         return view('movements.index', [
             'transactions' => $query->paginate(50)->withQueryString(), 'filter' => $request->input('area', 'all'),
-            'clients' => $request->user()->clients()->orderByDesc('active')->orderBy('name')->get(['id', 'name', 'active']),
+            'clients' => $request->user()->clients()->orderByDesc('active')->orderBy('name')->get(['id', 'name', 'alias', 'active']),
         ]);
     }
 

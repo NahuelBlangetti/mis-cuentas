@@ -85,7 +85,8 @@ class ClientController extends Controller
     private function validated(Request $request): array
     {
         $data = $request->validate([
-            'name' => ['required', 'string', 'max:160'], 'systems' => ['required', 'integer', 'min:1', 'max:1000'],
+            'name' => ['required', 'string', 'max:160'], 'alias' => ['nullable', 'string', 'max:80'],
+            'systems' => ['required', 'integer', 'min:1', 'max:1000'],
             'phone' => ['nullable', 'string', 'max:30', function ($attribute, $value, $fail) {
                 if (WhatsApp::normalize($value) === null) $fail('Ingresá el celular con código de área, sin 0 ni 15. Ej. 351 1234567.');
             }],

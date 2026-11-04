@@ -19,7 +19,7 @@
                 <div><small>Vigente desde</small><b>{{ $share ? ucfirst(Billing::monthLabel($share->effective_from)) : '—' }}</b></div>
                 <div><small>Uso</small><b>{{ $resource->installations->count() }} inst. · {{ $resource->databases->count() }} bases</b></div>
             </div>
-            <p class="client-debt muted">{{ $clients->isEmpty() ? 'Todavía no hay instalaciones ni bases vinculadas.' : 'Clientes: '.$clients->pluck('name')->implode(', ') }}</p>
+            <p class="client-debt muted">{{ $clients->isEmpty() ? 'Todavía no hay instalaciones ni bases vinculadas.' : 'Clientes: '.$clients->map->label()->implode(', ') }}</p>
             @if ($resource->notes)<p class="field-hint">{{ $resource->notes }}</p>@endif
             <div class="stacked-details">
                 <details class="quick-payment"><summary>Historial de participación ({{ $resource->shares->count() }})</summary>
