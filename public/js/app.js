@@ -78,19 +78,21 @@
     const clientField = movementForm?.querySelector('[data-client-field]');
     const clientNameField = movementForm?.querySelector('[data-client-name-field]');
 
-    // El cliente solo aplica al negocio; el nombre se pide solo para un cliente ocasional.
-    // Un campo oculto queda deshabilitado para que no se envíe.
+    // El nombre se pide solo para un cliente ocasional. Un cobro de abono o un movimiento personal anterior no cambian
+    // de tipo ni de cliente. Un campo oculto queda deshabilitado para que no se envíe.
+    const setMovementLocked = (locked) => {
+        movementForm.elements.type.disabled = locked;
+        movementForm.dataset.locked = locked ? '1' : '';
+    };
     const syncClientFields = () => {
         if (!movementForm) return;
-        const { area, client, client_name: clientName } = movementForm.elements;
-        const locked = area.disabled;
-        clientField.hidden = locked || area.value !== 'business';
+        const { client, client_name: clientName } = movementForm.elements;
+        clientField.hidden = movementForm.dataset.locked === '1';
         client.disabled = clientField.hidden;
         clientNameField.hidden = clientField.hidden || client.value !== 'occasional';
         clientName.disabled = clientNameField.hidden;
         clientName.required = !clientNameField.hidden;
     };
-    movementForm?.elements.area.addEventListener('change', syncClientFields);
     movementForm?.elements.client.addEventListener('change', () => {
         syncClientFields();
         if (movementForm.elements.client.value === 'occasional') movementForm.elements.client_name.focus();
@@ -102,9 +104,8 @@
         const data = button.dataset;
         movementForm.action = data.url;
         movementForm.elements._method.value = 'PUT';
-        ['type', 'area', 'description', 'category', 'amount', 'date', 'client', 'client_name'].forEach((name) => { movementForm.elements[name].value = data[name] || ''; });
-        // Los cobros de abonos siempre son ingresos del negocio del mismo cliente.
-        movementForm.elements.type.disabled = movementForm.elements.area.disabled = data.payment === '1';
+        ['type', 'description', 'category', 'amount', 'date', 'client', 'client_name'].forEach((name) => { movementForm.elements[name].value = data[name] || ''; });
+        setMovementLocked(data.payment === '1' || data.area === 'personal');
         syncClientFields();
         movementTitle.textContent = 'Editar movimiento';
         movementCancel.hidden = false;
@@ -116,7 +117,7 @@
         movementForm.reset();
         movementForm.action = storeMovementUrl;
         movementForm.elements._method.value = 'POST';
-        movementForm.elements.type.disabled = movementForm.elements.area.disabled = false;
+        setMovementLocked(false);
         syncClientFields();
         movementTitle.textContent = 'Nuevo movimiento';
         movementCancel.hidden = true;
@@ -126,6 +127,27 @@
     document.querySelectorAll('form[data-confirm]').forEach((confirmForm) => confirmForm.addEventListener('submit', (event) => {
         if (!window.confirm(confirmForm.dataset.confirm)) event.preventDefault();
     }));
+
+    const moreToggle = document.querySelector('[data-more-toggle]');
+    const moreSheet = document.getElementById('more-sheet');
+    const setMoreOpen = (open) => {
+        if (!moreToggle || !moreSheet) return;
+        moreSheet.toggleAttribute('hidden', !open);
+        moreToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        moreToggle.classList.toggle('is-open', open);
+    };
+    moreToggle?.addEventListener('click', (event) => {
+        event.stopPropagation();
+        setMoreOpen(moreSheet.hasAttribute('hidden'));
+    });
+    document.addEventListener('click', (event) => {
+        if (!moreSheet || !moreToggle || moreSheet.hasAttribute('hidden')) return;
+        if (moreSheet.contains(event.target) || moreToggle.contains(event.target)) return;
+        setMoreOpen(false);
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') setMoreOpen(false);
+    });
 
     if ('serviceWorker' in navigator && location.protocol === 'https:') {
         window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));

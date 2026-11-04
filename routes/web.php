@@ -8,6 +8,8 @@ use App\Http\Controllers\FixedExpenseController;
 use App\Http\Controllers\InfrastructureController;
 use App\Http\Controllers\InstallationDatabaseController;
 use App\Http\Controllers\MovementController;
+use App\Http\Controllers\PersonalExpenseController;
+use App\Http\Controllers\PersonalRecurringExpenseController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/manifest.webmanifest', fn () => response()->file(public_path('manifest.webmanifest'), ['Content-Type' => 'application/manifest+json']))->name('pwa.manifest');
@@ -50,5 +52,13 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureOwner::class])->group(func
     Route::post('/movimientos', [MovementController::class, 'store'])->name('movements.store');
     Route::put('/movimientos/{transaction}', [MovementController::class, 'update'])->name('movements.update');
     Route::delete('/movimientos/{transaction}',[MovementController::class, 'destroy'])->name('movements.destroy');
-    Route::get('/finanzas-personales', [MovementController::class, 'personal'])->name('personal.index');
+    Route::get('/finanzas-personales', [PersonalExpenseController::class, 'index'])->name('personal.index');
+    Route::post('/finanzas-personales/gastos', [PersonalExpenseController::class, 'store'])->name('personal.expenses.store');
+    Route::put('/finanzas-personales/gastos/{expense}', [PersonalExpenseController::class, 'update'])->name('personal.expenses.update');
+    Route::delete('/finanzas-personales/gastos/{expense}', [PersonalExpenseController::class, 'destroy'])->name('personal.expenses.destroy');
+    Route::post('/finanzas-personales/recurrentes', [PersonalRecurringExpenseController::class, 'store'])->name('personal.recurring.store');
+    Route::put('/finanzas-personales/recurrentes/{recurring}', [PersonalRecurringExpenseController::class, 'update'])->name('personal.recurring.update');
+    Route::delete('/finanzas-personales/recurrentes/{recurring}', [PersonalRecurringExpenseController::class, 'destroy'])->name('personal.recurring.destroy');
+    Route::post('/finanzas-personales/recurrentes/{recurring}/importes', [PersonalRecurringExpenseController::class, 'storeAmount'])->name('personal.recurring.amounts.store');
+    Route::delete('/finanzas-personales/recurrentes/{recurring}/importes/{amount}', [PersonalRecurringExpenseController::class, 'destroyAmount'])->name('personal.recurring.amounts.destroy');
 });

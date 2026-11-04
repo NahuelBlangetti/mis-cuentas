@@ -35,20 +35,27 @@ class FixedExpenses
     }
 
     // Reporte del mes que, la primera vez que se consulta el mes en curso, guarda la cotización de Arq; después queda fija
-    // hasta que la actualices. Si la API falla, se reintenta a los 15 minutos para no demorar cada visita.
-    // Devuelve [reporte, si falló la consulta].
+    // hasta que la actualices. Devuelve [reporte, si falló la consulta].
     public static function withCurrentRate(User $user, string $month): array
     {
         $report = self::report($user, $month);
-        if ($month !== Carbon::now()->format('Y-m') || ! $report['needsRate'] || $report['rate'] || ! Cache::add("exchange-rate-attempt:{$user->id}:{$month}", true, 900)) {
-            return [$report, false];
-        }
+        if (! $report['needsRate'] || $report['rate']) return [$report, false];
+        $stored = self::attemptCurrentRate($user, $month);
 
+        return $stored ? [self::report($user, $month), false] : [$report, $stored === false];
+    }
+
+    // Toma y guarda la cotización de Arq del mes en curso; un mes cerrado nunca la toma. La cotización es una por mes y la
+    // comparten los gastos fijos y los personales. Si la API falla, se reintenta a los 15 minutos para no demorar cada visita.
+    // Devuelve null si no se intentó y, si se intentó, si se pudo guardar.
+    public static function attemptCurrentRate(User $user, string $month): ?bool
+    {
+        if ($month !== Carbon::now()->format('Y-m') || ! Cache::add("exchange-rate-attempt:{$user->id}:{$month}", true, 900)) return null;
         $quote = self::fetchRate();
-        if (! $quote) return [$report, true];
+        if (! $quote) return false;
         self::storeRate($user, $month, $quote['rate'], 'arq', $quote['quoted_at']);
 
-        return [self::report($user, $month), false];
+        return true;
     }
 
     public static function storeRate(User $user, string $month, float $rate, string $source, ?Carbon $quotedAt = null): ExchangeRate

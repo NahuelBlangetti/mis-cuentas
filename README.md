@@ -10,9 +10,11 @@ Aplicación privada para administrar clientes, abonos mensuales, cobros, movimie
 - Instalaciones y bases de cada cliente, vinculadas a servidores y clústeres compartidos, con tu participación en cada recurso.
 - Gastos fijos en pesos o dólares, con importe por vigencia y cotización mensual de USDC en Arq.
 - Registro de cobros totales o parciales, asociados al mes de abono.
-- Registro de ingresos y gastos del negocio y personales.
+- Registro de ingresos y gastos del negocio.
 - Resumen mensual con el resultado del negocio: abonos cobrados y otros ingresos, menos los gastos registrados y tu parte de los gastos fijos. Cuenta cada movimiento en el mes de su fecha.
-- Saldo pendiente, finanzas personales y exportación de movimientos a CSV.
+- Finanzas personales aparte del negocio, por ahora solo gastos: recurrentes (alquiler, servicios, suscripciones) en pesos o dólares con importe por vigencia, gastos cargados en el mes y totales por categoría.
+- Objetivo personal: cuánto de los gastos personales y del negocio del mes cubre lo cobrado a clientes (abonos y pagos extra). Se ve en el Resumen y en Finanzas personales.
+- Saldo pendiente y exportación de movimientos a CSV.
 - Cinco clientes de ejemplo cargados al crear la cuenta: cuatro por $27.500 y uno por $42.500 con dos sistemas. Cambiá sus nombres y vencimientos al ingresar.
 
 ## Cómo se calcula lo pendiente

@@ -8,6 +8,7 @@
     <article class="metric-card"><div class="metric-label">Pendiente de cobro</div><div class="metric-value">{{ money($pending) }}</div><div class="metric-foot">{{ $arrears > 0 ? 'Incluye '.money($arrears).' de meses anteriores' : 'Según los abonos generados' }}</div></article>
     <article class="metric-card"><div class="metric-label">Resultado del mes</div><div class="metric-value {{ $summary['result'] < 0 ? 'negative' : '' }}">{{ money($summary['result']) }}</div><div class="metric-foot">{{ $summary['fixedPending'] > 0 ? 'Sin contar '.$summary['fixedPending'].' gasto(s) fijo(s) pendiente(s)' : 'Ingresos menos gastos del negocio' }}</div></article>
 </section>
+@include('personal.goal', ['goal' => $goal, 'link' => true])
 <section class="panel"><div class="panel-heading"><div><h2>Ingresos y gastos del negocio</h2><p>Según la fecha de cada movimiento. Si un gasto ya está en Gastos fijos, no lo registres también como movimiento: se contaría dos veces.</p></div><a class="text-link" href="{{ route('fixed-expenses.index') }}">Ver gastos fijos →</a></div>
     <div class="summary-list">
         <div class="summary-row summary-group"><span>Ingresos</span><b>{{ money($summary['income']) }}</b></div>
@@ -18,7 +19,7 @@
         <div class="summary-row"><span>Gastos registrados en movimientos</span><b>{{ money($summary['recordedExpenses']) }}</b></div>
         <div class="summary-row summary-total"><span>Resultado del mes</span><b class="{{ $summary['result'] < 0 ? 'negative' : '' }}">{{ money($summary['result']) }}</b></div>
     </div>
-    @if ($summary['rateFailed'])<p class="summary-note text-warn">No se pudo obtener la cotización de Arq: los gastos fijos en dólares no suman hasta que la tomes o la cargues en Gastos fijos.</p>@endif
+    @if ($summary['rateFailed'])<p class="summary-note text-warn">No se pudo obtener la cotización de Arq: los gastos en dólares no suman hasta que la tomes o la cargues en Gastos fijos.</p>@endif
 </section>
 <div class="two-columns">
     <section class="panel"><div class="panel-heading"><div><h2>Cobros del mes</h2><p>Seguimiento por cliente</p></div><a class="text-link" href="{{ route('clients.index') }}">Ver clientes →</a></div>
@@ -29,7 +30,7 @@
     </section>
     <section class="panel"><div class="panel-heading"><div><h2>Actividad reciente</h2><p>Últimos movimientos registrados</p></div><a class="text-link" href="{{ route('movements.index') }}">Ver todo →</a></div>
         @forelse ($recent as $movement)
-            <div class="activity-row"><span class="activity-icon {{ $movement->type === 'expense' ? 'is-expense' : '' }}">{{ $movement->type === 'expense' ? '−' : '+' }}</span><div class="activity-info"><b>{{ $movement->description }}</b><small>{{ $movement->date->format('d/m/Y') }} · {{ $movement->area === 'personal' ? 'Personal' : 'Negocio' }}{{ ! $movement->billing_month && $movement->clientLabel() ? ' · '.$movement->clientLabel() : '' }}</small></div><b class="activity-amount {{ $movement->type === 'expense' ? 'negative' : '' }}">{{ money((float) $movement->amount) }}</b></div>
+            <div class="activity-row"><span class="activity-icon {{ $movement->type === 'expense' ? 'is-expense' : '' }}">{{ $movement->type === 'expense' ? '−' : '+' }}</span><div class="activity-info"><b>{{ $movement->description }}</b><small>{{ $movement->date->format('d/m/Y') }}{{ $movement->area === 'personal' ? ' · Personal' : '' }}{{ ! $movement->billing_month && $movement->clientLabel() ? ' · '.$movement->clientLabel() : '' }}</small></div><b class="activity-amount {{ $movement->type === 'expense' ? 'negative' : '' }}">{{ money((float) $movement->amount) }}</b></div>
         @empty <div class="empty-state">Tus cobros y gastos aparecerán acá.</div> @endforelse
     </section>
 </div>

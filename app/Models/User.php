@@ -19,6 +19,8 @@ class User extends Authenticatable
     public function infrastructureResources(): HasMany { return $this->hasMany(InfrastructureResource::class); }
     public function fixedExpenses(): HasMany { return $this->hasMany(FixedExpense::class); }
     public function exchangeRates(): HasMany { return $this->hasMany(ExchangeRate::class); }
+    public function personalExpenses(): HasMany { return $this->hasMany(PersonalExpense::class); }
+    public function personalRecurringExpenses(): HasMany { return $this->hasMany(PersonalRecurringExpense::class); }
 
     /**
      * The attributes that are mass assignable.

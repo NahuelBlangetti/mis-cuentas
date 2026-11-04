@@ -38,7 +38,7 @@ class MovementTest extends TestCase
         $this->assertDoesNotMatchRegularExpression('/;"[=+\-@]/', $csv);
     }
 
-    public function test_se_puede_editar_un_movimiento(): void
+    public function test_se_puede_editar_un_movimiento_y_sigue_siendo_del_negocio(): void
     {
         $movement = $this->movement();
 
@@ -47,7 +47,21 @@ class MovementTest extends TestCase
         ])->assertRedirect()->assertSessionHasNoErrors();
 
         $movement->refresh();
-        $this->assertSame(['income', 'personal', 'Venta usada', 'Ventas', '1500.50', '2026-10-02'], [$movement->type, $movement->area, $movement->description, $movement->category, $movement->amount, $movement->date->toDateString()]);
+        $this->assertSame(['income', 'business', 'Venta usada', 'Ventas', '1500.50', '2026-10-02'], [$movement->type, $movement->area, $movement->description, $movement->category, $movement->amount, $movement->date->toDateString()]);
+    }
+
+    public function test_un_ingreso_personal_anterior_se_edita_sin_cambiar_tipo_area_ni_cliente(): void
+    {
+        $client = $this->user->clients()->create(['name' => 'Cliente', 'systems' => 1, 'monthly_fee' => 1000, 'due_day' => 10]);
+        $movement = $this->movement(['type' => 'income', 'area' => 'personal', 'description' => 'Sueldo']);
+
+        $this->actingAs($this->user)->put(route('movements.update', $movement), [
+            'type' => 'expense', 'client' => (string) $client->id, 'description' => 'Sueldo de octubre', 'amount' => 900000, 'date' => '2026-10-05',
+        ])->assertRedirect()->assertSessionHasNoErrors();
+
+        $movement->refresh();
+        $this->assertSame(['income', 'personal', null, 'Sueldo de octubre', '900000.00'], [$movement->type, $movement->area, $movement->client_id, $movement->description, $movement->amount]);
+        $this->get(route('movements.index'))->assertOk()->assertSee('Personales anteriores');
     }
 
     public function test_editar_un_cobro_de_cliente_no_cambia_su_tipo_ni_su_mes(): void
@@ -93,19 +107,23 @@ class MovementTest extends TestCase
         $this->assertEquals(27500, \App\Services\Billing::balances($this->user, '2026-10')[$client->id]['total']);
     }
 
-    public function test_no_se_puede_asignar_un_cliente_ajeno_y_lo_personal_no_lleva_cliente(): void
+    public function test_no_se_puede_asignar_un_cliente_ajeno_y_un_movimiento_nuevo_siempre_es_del_negocio(): void
     {
         $other = User::factory()->create()->clients()->create(['name' => 'Ajeno', 'systems' => 1, 'monthly_fee' => 1000, 'due_day' => 10]);
         $mine = $this->user->clients()->create(['name' => 'Propio', 'systems' => 1, 'monthly_fee' => 1000, 'due_day' => 10]);
 
         $this->actingAs($this->user)->post(route('movements.store'), [
-            'type' => 'income', 'area' => 'business', 'client' => (string) $other->id, 'description' => 'Intento', 'amount' => 1, 'date' => '2026-10-05',
+            'type' => 'income', 'client' => (string) $other->id, 'description' => 'Intento', 'amount' => 1, 'date' => '2026-10-05',
         ])->assertSessionHasErrors('client');
+        // Lo personal ya no se carga desde Movimientos: un área enviada a mano se ignora.
         $this->actingAs($this->user)->post(route('movements.store'), [
-            'type' => 'expense', 'area' => 'personal', 'client' => (string) $mine->id, 'description' => 'Super', 'amount' => 1, 'date' => '2026-10-05',
+            'type' => 'expense', 'area' => 'personal', 'client' => (string) $mine->id, 'description' => 'Hosting', 'amount' => 1, 'date' => '2026-10-05',
         ])->assertSessionHasNoErrors();
 
-        $this->assertNull(Transaction::sole()->client_id);
+        $movement = Transaction::sole();
+        $this->assertSame(['business', $mine->id], [$movement->area, $movement->client_id]);
+        $this->assertSame(0, $this->user->personalExpenses()->count());
+        $this->get(route('movements.index'))->assertOk()->assertDontSee('name="area"', false);
     }
 
     public function test_se_puede_cambiar_el_cliente_de_un_trabajo_extra(): void
@@ -141,18 +159,6 @@ class MovementTest extends TestCase
             ->assertSee('55 registros')->assertSee('Página 1 de 2')->assertSee('area=business&amp;page=2', false)->assertDontSee('Gasto 5<', false);
         $this->actingAs($this->user)->get(route('movements.index', ['area' => 'business', 'page' => 2]))->assertOk()
             ->assertSee('Gasto 5<', false)->assertDontSee('Personal</b>', false);
-    }
-
-    public function test_finanzas_personales_navega_por_mes(): void
-    {
-        $this->movement(['area' => 'personal', 'type' => 'income', 'description' => 'Sueldo de septiembre', 'amount' => 900000, 'date' => '2026-09-05']);
-        $this->movement(['area' => 'personal', 'description' => 'Super de octubre', 'amount' => 50000, 'date' => '2026-10-03']);
-
-        $this->actingAs($this->user)->get(route('personal.index'))->assertOk()
-            ->assertSee('Super de octubre')->assertDontSee('Sueldo de septiembre')->assertSee('mes=2026-09')->assertDontSee('mes=2026-11');
-        $this->actingAs($this->user)->get(route('personal.index', ['mes' => '2026-09']))->assertOk()
-            ->assertSee('Sueldo de septiembre')->assertDontSee('Super de octubre')->assertViewHas('income', 900000)->assertSee('mes=2026-10');
-        $this->actingAs($this->user)->get(route('personal.index', ['mes' => '2026-13']))->assertOk()->assertSee('Super de octubre');
     }
 
     private function movement(array $attributes = []): Transaction

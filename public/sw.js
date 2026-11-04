@@ -1,4 +1,4 @@
-const CACHE = 'mis-cuentas-static-v2';
+const CACHE = 'mis-cuentas-static-v4';
 const STATIC_FILES = ['/css/app.css', '/js/app.js', '/icon.svg', '/icon-192.png', '/icon-512.png', '/icon-180.png', '/offline.html', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
