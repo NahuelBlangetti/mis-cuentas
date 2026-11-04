@@ -6,6 +6,7 @@ use App\Models\ExchangeRate;
 use App\Models\FixedExpense;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -31,6 +32,23 @@ class FixedExpenses
         if (! is_numeric($ask) || (float) $ask <= 0 || ($quote['stale'] ?? false) === true) return null;
 
         return ['rate' => round((float) $ask, 4), 'quoted_at' => self::quoteTime($quote['time'] ?? null)];
+    }
+
+    // Reporte del mes que, la primera vez que se consulta el mes en curso, guarda la cotización de Arq; después queda fija
+    // hasta que la actualices. Si la API falla, se reintenta a los 15 minutos para no demorar cada visita.
+    // Devuelve [reporte, si falló la consulta].
+    public static function withCurrentRate(User $user, string $month): array
+    {
+        $report = self::report($user, $month);
+        if ($month !== Carbon::now()->format('Y-m') || ! $report['needsRate'] || $report['rate'] || ! Cache::add("exchange-rate-attempt:{$user->id}:{$month}", true, 900)) {
+            return [$report, false];
+        }
+
+        $quote = self::fetchRate();
+        if (! $quote) return [$report, true];
+        self::storeRate($user, $month, $quote['rate'], 'arq', $quote['quoted_at']);
+
+        return [self::report($user, $month), false];
     }
 
     public static function storeRate(User $user, string $month, float $rate, string $source, ?Carbon $quotedAt = null): ExchangeRate

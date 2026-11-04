@@ -180,6 +180,39 @@ class FixedExpenseTest extends TestCase
         $this->assertNull(FixedExpenses::report($other, '2026-11')['rate']);
     }
 
+    public function test_el_resumen_suma_otros_ingresos_y_gastos_fijos_al_resultado_del_mes(): void
+    {
+        $owner = User::factory()->create();
+        $client = $owner->clients()->create(['name' => 'Ferretería', 'systems' => 1, 'monthly_fee' => 27500, 'due_day' => 10]);
+        $this->actingAs($owner)->post(route('clients.payment', $client), ['amount' => 27500, 'billing_month' => '2026-11', 'date' => '2026-11-04'])->assertSessionHasNoErrors();
+        $owner->transactions()->create(['type' => 'income', 'area' => 'business', 'description' => 'Cuota 01', 'amount' => 400000, 'date' => '2026-11-04']);
+        $owner->transactions()->create(['type' => 'expense', 'area' => 'business', 'description' => 'Dominio', 'amount' => 1000, 'date' => '2026-11-10']);
+        $owner->transactions()->create(['type' => 'expense', 'area' => 'personal', 'description' => 'Súper', 'amount' => 5000, 'date' => '2026-11-10']);
+        $owner->transactions()->create(['type' => 'income', 'area' => 'business', 'description' => 'Trabajo de octubre', 'amount' => 90000, 'date' => '2026-10-30']);
+        $this->expense($owner, 'Anthropic', ['2026-11' => 20]);
+        $server = $owner->infrastructureResources()->create(['name' => 'Servidor', 'provider' => 'digitalocean', 'kind' => 'server']);
+        $owner->fixedExpenses()->create(['name' => 'Servidor compartido', 'category' => 'infrastructure', 'currency' => 'USD', 'infrastructure_resource_id' => $server->id])->amounts()->create(['effective_from' => '2026-11', 'amount' => 12]);
+        FixedExpenses::storeRate($owner, '2026-11', 1500, 'manual');
+
+        $this->get(route('dashboard'))->assertOk()
+            ->assertViewHas('summary', fn ($summary) => [$summary['subscriptionIncome'], $summary['otherIncome'], $summary['income'], $summary['recordedExpenses'], $summary['fixedExpenses'], $summary['fixedPending'], $summary['result']]
+                === [27500.0, 400000.0, 427500.0, 1000.0, 30000.0, 1, 396500.0])
+            ->assertSee('$396.500')->assertSee('−$31.000')->assertSee('Sin contar 1 gasto(s) fijo(s) pendiente(s)');
+    }
+
+    public function test_el_resumen_toma_la_cotizacion_del_mes_y_si_falla_no_suma_los_dolares(): void
+    {
+        Http::fake(['api.comparadolar.ar/*' => Http::sequence()->push('error', 500)->push($this->quotes())]);
+        $owner = User::factory()->create();
+        $this->expense($owner, 'Anthropic', ['2026-11' => 20]);
+
+        $this->actingAs($owner)->get(route('dashboard'))->assertOk()->assertSee('No se pudo obtener la cotización de Arq')
+            ->assertViewHas('summary', fn ($summary) => $summary['fixedExpenses'] === 0.0 && $summary['fixedPending'] === 1 && $summary['rateFailed']);
+        $this->post(route('fixed-expenses.rate.refresh'))->assertSessionHasNoErrors();
+        $this->get(route('dashboard'))->assertOk()->assertDontSee('No se pudo obtener la cotización de Arq')
+            ->assertViewHas('summary', fn ($summary) => $summary['fixedExpenses'] === 33376.2 && $summary['result'] === -33376.2)->assertSee('−$33.376,20');
+    }
+
     public function test_formatea_importes_en_dolares(): void
     {
         $this->assertSame(['20 USD', '10,75 USD', '1.234,50 USD', '0 USD'], [usd(20), usd('10.75'), usd(1234.5), usd(null)]);

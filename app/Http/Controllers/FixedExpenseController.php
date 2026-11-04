@@ -9,7 +9,6 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
@@ -22,20 +21,7 @@ class FixedExpenseController extends Controller
         $current = Carbon::now()->startOfMonth();
         $requested = (string) $request->query('mes');
         $month = preg_match('/^\d{4}-(0[1-9]|1[0-2])$/', $requested) && $requested <= $current->format('Y-m') ? $requested : $current->format('Y-m');
-        $report = FixedExpenses::report($user, $month);
-
-        // La primera vez que abrís el mes en curso se guarda la cotización de Arq; después queda fija hasta que la actualices.
-        // Si la API falla, se reintenta a los 15 minutos para no demorar cada visita.
-        $rateFailed = false;
-        if ($month === $current->format('Y-m') && $report['needsRate'] && ! $report['rate'] && Cache::add("exchange-rate-attempt:{$user->id}:{$month}", true, 900)) {
-            $quote = FixedExpenses::fetchRate();
-            if ($quote) {
-                FixedExpenses::storeRate($user, $month, $quote['rate'], 'arq', $quote['quoted_at']);
-                $report = FixedExpenses::report($user, $month);
-            } else {
-                $rateFailed = true;
-            }
-        }
+        [$report, $rateFailed] = FixedExpenses::withCurrentRate($user, $month);
 
         $date = Carbon::createFromFormat('!Y-m', $month);
         return view('fixed-expenses.index', [

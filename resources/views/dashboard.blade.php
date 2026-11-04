@@ -6,7 +6,19 @@
     <article class="metric-card metric-main"><div class="metric-label">Abonos del mes</div><div class="metric-value">{{ money($expected) }}</div><div class="metric-foot">{{ $clients->where('active', true)->count() }} clientes activos · {{ $clients->where('active', true)->sum('systems') }} sistemas</div></article>
     <article class="metric-card"><div class="metric-label">Cobrado a clientes</div><div class="metric-value">{{ money($collected) }}</div><div class="metric-foot">Pagos imputados a este mes</div></article>
     <article class="metric-card"><div class="metric-label">Pendiente de cobro</div><div class="metric-value">{{ money($pending) }}</div><div class="metric-foot">{{ $arrears > 0 ? 'Incluye '.money($arrears).' de meses anteriores' : 'Según los abonos generados' }}</div></article>
-    <article class="metric-card"><div class="metric-label">Gastos del negocio</div><div class="metric-value">{{ money($businessExpenses) }}</div><div class="metric-foot">Registrados en el mes</div></article>
+    <article class="metric-card"><div class="metric-label">Resultado del mes</div><div class="metric-value {{ $summary['result'] < 0 ? 'negative' : '' }}">{{ money($summary['result']) }}</div><div class="metric-foot">{{ $summary['fixedPending'] > 0 ? 'Sin contar '.$summary['fixedPending'].' gasto(s) fijo(s) pendiente(s)' : 'Ingresos menos gastos del negocio' }}</div></article>
+</section>
+<section class="panel"><div class="panel-heading"><div><h2>Ingresos y gastos del negocio</h2><p>Según la fecha de cada movimiento. Si un gasto ya está en Gastos fijos, no lo registres también como movimiento: se contaría dos veces.</p></div><a class="text-link" href="{{ route('fixed-expenses.index') }}">Ver gastos fijos →</a></div>
+    <div class="summary-list">
+        <div class="summary-row summary-group"><span>Ingresos</span><b>{{ money($summary['income']) }}</b></div>
+        <div class="summary-row"><span>Abonos cobrados en el mes</span><b>{{ money($summary['subscriptionIncome']) }}</b></div>
+        <div class="summary-row"><span>Otros ingresos</span><b>{{ money($summary['otherIncome']) }}</b></div>
+        <div class="summary-row summary-group"><span>Gastos</span><b>{{ money(-$summary['expenses']) }}</b></div>
+        <div class="summary-row"><span>Gastos fijos, tu parte en pesos @if ($summary['fixedPending'] > 0)<small class="text-warn">· {{ $summary['fixedPending'] }} pendiente(s) sin sumar</small>@endif</span><b>{{ money($summary['fixedExpenses']) }}</b></div>
+        <div class="summary-row"><span>Gastos registrados en movimientos</span><b>{{ money($summary['recordedExpenses']) }}</b></div>
+        <div class="summary-row summary-total"><span>Resultado del mes</span><b class="{{ $summary['result'] < 0 ? 'negative' : '' }}">{{ money($summary['result']) }}</b></div>
+    </div>
+    @if ($summary['rateFailed'])<p class="summary-note text-warn">No se pudo obtener la cotización de Arq: los gastos fijos en dólares no suman hasta que la tomes o la cargues en Gastos fijos.</p>@endif
 </section>
 <div class="two-columns">
     <section class="panel"><div class="panel-heading"><div><h2>Cobros del mes</h2><p>Seguimiento por cliente</p></div><a class="text-link" href="{{ route('clients.index') }}">Ver clientes →</a></div>

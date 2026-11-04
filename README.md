@@ -11,7 +11,8 @@ Aplicación privada para administrar clientes, abonos mensuales, cobros, movimie
 - Gastos fijos en pesos o dólares, con importe por vigencia y cotización mensual de USDC en Arq.
 - Registro de cobros totales o parciales, asociados al mes de abono.
 - Registro de ingresos y gastos del negocio y personales.
-- Resumen mensual, saldo pendiente, finanzas personales y exportación de movimientos a CSV.
+- Resumen mensual con el resultado del negocio: abonos cobrados y otros ingresos, menos los gastos registrados y tu parte de los gastos fijos. Cuenta cada movimiento en el mes de su fecha.
+- Saldo pendiente, finanzas personales y exportación de movimientos a CSV.
 - Cinco clientes de ejemplo cargados al crear la cuenta: cuatro por $27.500 y uno por $42.500 con dos sistemas. Cambiá sus nombres y vencimientos al ingresar.
 
 ## Cómo se calcula lo pendiente
@@ -74,7 +75,7 @@ En “Infraestructura” se registran una sola vez los servidores y clústeres, 
 
 En “Gastos fijos” se cargan las suscripciones y servicios mensuales, en pesos o en dólares. La moneda queda fija desde el alta. Cada importe tiene un mes de vigencia: un cambio de plan se carga como un importe nuevo y los meses anteriores conservan el que tenían. Un importe 0 indica que el gasto se dejó de pagar desde ese mes. Si el gasto es la factura de un servidor o clúster compartido, se carga el total, se vincula al recurso y tu parte sale de tu participación en él. Mientras esa participación no esté cargada, el gasto queda pendiente y no suma.
 
-Los dólares se pasan a pesos con una cotización por mes: el precio de compra de USDC en Arq, tomado de la API pública de comparadolar.ar (`EXCHANGE_RATE_URL` y `EXCHANGE_RATE_PROVIDER` permiten cambiar la fuente). Se guarda la primera vez que abrís el mes en curso y no cambia hasta que la actualizás. Los meses cerrados conservan la suya y solo se corrigen a mano. Si la API no responde o informa un precio desactualizado, el mes queda **sin cotización**: no se usa ningún cero ni precio viejo.
+Los dólares se pasan a pesos con una cotización por mes: el precio de compra de USDC en Arq, tomado de la API pública de comparadolar.ar (`EXCHANGE_RATE_URL` y `EXCHANGE_RATE_PROVIDER` permiten cambiar la fuente). Se guarda la primera vez que se consulta el mes en curso (al abrir Resumen o Gastos fijos) y no cambia hasta que la actualizás. Los meses cerrados conservan la suya y solo se corrigen a mano. Si la API no responde o informa un precio desactualizado, el mes queda **sin cotización**: no se usa ningún cero ni precio viejo.
 
 1. Creá una base MySQL/MariaDB y un usuario exclusivo para esta app.
 2. Subí el proyecto a una carpeta privada de la cuenta del hosting. Configurá el document root del dominio o subdominio para que apunte a la carpeta `public/` de este proyecto. No expongas `.env`, `storage/` ni el resto del código al público.
