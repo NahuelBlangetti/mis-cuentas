@@ -4,8 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use App\Models\ClientInstallation;
+use App\Models\InstallationDatabase;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class ClientInstallationController extends Controller
@@ -14,33 +17,35 @@ class ClientInstallationController extends Controller
     {
         abort_unless($client->user_id === $request->user()->id, 404);
 
-        return view('clients.installations', ['client' => $client, 'installations' => $client->installations()->orderBy('name')->get()]);
+        return view('clients.installations', [
+            'client' => $client,
+            'installations' => $client->installations()->with(['resource', 'databases.resource'])->orderBy('name')->get(),
+            'resources' => $request->user()->infrastructureResources()->orderByDesc('active')->orderBy('name')->get(),
+        ]);
     }
 
+    // La primera base es opcional: puede cargarse después, cuando exista el usuario de solo lectura.
     public function store(Request $request, Client $client): RedirectResponse
     {
         abort_unless($client->user_id === $request->user()->id, 404);
-        $data = $request->validate([
-            'name' => ['required', 'string', 'max:160'],
-            'url' => ['required', 'url:https', 'max:2048', function ($attribute, $value, $fail) {
-                $parts = parse_url($value);
-                if (isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
-                    $fail('Usá la URL del sistema sin credenciales, parámetros ni fragmentos.');
-                }
-            }],
-            'host' => ['required', 'string', 'max:255', 'regex:/\A[a-zA-Z0-9.:-]+\z/'],
-            'port' => ['required', 'integer', 'between:1,65535'],
-            'database' => ['required', 'string', 'max:255'],
-            'username' => ['required', 'string', 'max:255'],
-            'password' => ['required', 'string', 'max:4096'],
-        ]);
+        $data = $request->validate([...self::rules($request), ...InstallationDatabase::connectionRules(optional: true), 'database_resource_id' => self::resourceRule($request)]);
 
-        $client->installations()->create([
-            'name' => $data['name'], 'url' => $data['url'],
-            'connection' => array_intersect_key($data, array_flip(['host', 'port', 'database', 'username', 'password'])),
-        ]);
+        DB::transaction(function () use ($client, $data) {
+            $installation = $client->installations()->create(['name' => $data['name'], 'url' => $data['url'], 'infrastructure_resource_id' => $data['infrastructure_resource_id'] ?? null]);
+            if ($connection = InstallationDatabase::connectionFrom($data)) {
+                $installation->databases()->create(['name' => 'Principal', 'infrastructure_resource_id' => $data['database_resource_id'] ?? null, 'connection' => $connection]);
+            }
+        });
 
         return redirect()->route('clients.installations.index', $client)->with('success', 'Instalación guardada. La conexión todavía no fue verificada.');
+    }
+
+    public function update(Request $request, Client $client, ClientInstallation $installation): RedirectResponse
+    {
+        abort_unless($client->user_id === $request->user()->id && $installation->client_id === $client->id, 404);
+        $installation->update($request->validate(self::rules($request)));
+
+        return redirect()->route('clients.installations.index', $client)->with('success', 'Instalación actualizada.');
     }
 
     public function destroy(Request $request, Client $client, ClientInstallation $installation): RedirectResponse
@@ -48,6 +53,26 @@ class ClientInstallationController extends Controller
         abort_unless($client->user_id === $request->user()->id && $installation->client_id === $client->id, 404);
         $installation->delete();
 
-        return redirect()->route('clients.installations.index', $client)->with('success', 'Instalación eliminada.');
+        return redirect()->route('clients.installations.index', $client)->with('success', 'Instalación eliminada junto con sus bases y credenciales.');
+    }
+
+    private static function rules(Request $request): array
+    {
+        return [
+            'name' => ['required', 'string', 'max:160'],
+            'url' => ['required', 'url:https', 'max:2048', function ($attribute, $value, $fail) {
+                $parts = parse_url($value);
+                if (isset($parts['user']) || isset($parts['pass']) || isset($parts['query']) || isset($parts['fragment'])) {
+                    $fail('Usá la URL del sistema sin credenciales, parámetros ni fragmentos.');
+                }
+            }],
+            'infrastructure_resource_id' => self::resourceRule($request),
+        ];
+    }
+
+    // Solo se puede vincular un recurso propio: un id ajeno no revela si existe.
+    public static function resourceRule(Request $request): array
+    {
+        return ['nullable', 'integer', Rule::exists('infrastructure_resources', 'id')->where('user_id', $request->user()->id)];
     }
 }

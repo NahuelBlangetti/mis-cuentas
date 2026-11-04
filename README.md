@@ -7,6 +7,8 @@ Aplicación privada para administrar clientes, abonos mensuales, cobros, movimie
 - Inicio de sesión privado, sin registro público.
 - Alta, edición y pausa/reactivación de clientes.
 - Sistemas por cliente, abono mensual, vencimiento y notas.
+- Instalaciones y bases de cada cliente, vinculadas a servidores y clústeres compartidos, con tu participación en cada recurso.
+- Gastos fijos en pesos o dólares, con importe por vigencia y cotización mensual de USDC en Arq.
 - Registro de cobros totales o parciales, asociados al mes de abono.
 - Registro de ingresos y gastos del negocio y personales.
 - Resumen mensual, saldo pendiente, finanzas personales y exportación de movimientos a CSV.
@@ -26,6 +28,14 @@ Los tests usan SQLite en memoria, así que necesitan la extensión `pdo_sqlite`:
 ```bash
 php artisan test
 ```
+
+Sin `pdo_sqlite`, usá una base MySQL local cuyo nombre termine en `_test` y pasá sus datos por variables de entorno:
+
+```bash
+DB_CONNECTION=mysql DB_DATABASE=mis_cuentas_test DB_USERNAME=usuario_local DB_PASSWORD=... php artisan test
+```
+
+`phpunit.xml` fija `DB_HOST=127.0.0.1` y deja `OWNER_EMAIL` vacío, y `tests/TestCase.php` se niega a correr contra cualquier base que no sea SQLite en memoria o una `*_test` local. Así, aunque el `.env` apunte a producción, `RefreshDatabase` no puede borrar tablas reales.
 
 ## Requisitos
 
@@ -58,7 +68,13 @@ Abrí la URL local que informa Artisan. El comando `app:create-owner` pide nombr
 
 Para desplegar en Forge y restringir el sitio a tu identidad, seguir [la guía de Forge y Cloudflare Access](docs/forge-cloudflare.md). Configurar `OWNER_EMAIL` antes del primer acceso: fuera de local/testing, si está vacío el login queda bloqueado. Si existe una cuenta, debe coincidir con su correo.
 
-Las instalaciones de cada cliente se cargan desde “Instalaciones y bases”. Sus credenciales se guardan cifradas con `APP_KEY`; conservar esa clave entre despliegues y respaldarla de forma privada. Por ahora se registran conexiones: no se consultan métricas ni se inicia sesión como administrador en los sistemas externos.
+Las instalaciones de cada cliente se cargan desde “Instalaciones y bases”. Cada instalación (sistema y URL) puede tener varias bases, y sus credenciales se guardan cifradas con `APP_KEY`; conservar esa clave entre despliegues y respaldarla de forma privada. Por ahora se registran conexiones: no se consultan métricas ni se inicia sesión como administrador en los sistemas externos.
+
+En “Infraestructura” se registran una sola vez los servidores y clústeres, aunque los compartan varios clientes. Las instalaciones se vinculan al servidor donde corren y las bases, al clúster que las aloja. Tu participación en cada recurso, es decir, el porcentaje del costo que pagás vos, se carga con un mes de vigencia: un cambio crea un registro nuevo y los meses anteriores conservan el porcentaje que tenían. Sin porcentaje cargado, el recurso figura como **pendiente** y no se asume ningún reparto.
+
+En “Gastos fijos” se cargan las suscripciones y servicios mensuales, en pesos o en dólares. La moneda queda fija desde el alta. Cada importe tiene un mes de vigencia: un cambio de plan se carga como un importe nuevo y los meses anteriores conservan el que tenían. Un importe 0 indica que el gasto se dejó de pagar desde ese mes. Si el gasto es la factura de un servidor o clúster compartido, se carga el total, se vincula al recurso y tu parte sale de tu participación en él. Mientras esa participación no esté cargada, el gasto queda pendiente y no suma.
+
+Los dólares se pasan a pesos con una cotización por mes: el precio de compra de USDC en Arq, tomado de la API pública de comparadolar.ar (`EXCHANGE_RATE_URL` y `EXCHANGE_RATE_PROVIDER` permiten cambiar la fuente). Se guarda la primera vez que abrís el mes en curso y no cambia hasta que la actualizás. Los meses cerrados conservan la suya y solo se corrigen a mano. Si la API no responde o informa un precio desactualizado, el mes queda **sin cotización**: no se usa ningún cero ni precio viejo.
 
 1. Creá una base MySQL/MariaDB y un usuario exclusivo para esta app.
 2. Subí el proyecto a una carpeta privada de la cuenta del hosting. Configurá el document root del dominio o subdominio para que apunte a la carpeta `public/` de este proyecto. No expongas `.env`, `storage/` ni el resto del código al público.

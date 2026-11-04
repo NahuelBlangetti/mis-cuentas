@@ -19,3 +19,12 @@ if (! function_exists('money')) {
         return ($cents < 0 ? '−' : '').'$'.number_format(abs($cents) / 100, $cents % 100 === 0 ? 0 : 2, ',', '.');
     }
 }
+
+// Importe en dólares con el mismo criterio: "20 USD" o "10,75 USD".
+if (! function_exists('usd')) {
+    function usd(string|int|float|null $amount): string
+    {
+        $cents = (int) round((float) $amount * 100);
+        return ($cents < 0 ? '−' : '').number_format(abs($cents) / 100, $cents % 100 === 0 ? 0 : 2, ',', '.').' USD';
+    }
+}

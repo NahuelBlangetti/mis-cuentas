@@ -22,6 +22,8 @@
         <nav class="side-nav" aria-label="Navegación principal">
             <a class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><span>▦</span>Resumen</a>
             <a class="{{ request()->routeIs('clients.*') ? 'active' : '' }}" href="{{ route('clients.index') }}"><span>♧</span>Clientes y cobros</a>
+            <a class="{{ request()->routeIs('infrastructure.*') ? 'active' : '' }}" href="{{ route('infrastructure.index') }}"><span>◫</span>Infraestructura</a>
+            <a class="{{ request()->routeIs('fixed-expenses.*') ? 'active' : '' }}" href="{{ route('fixed-expenses.index') }}"><span>↻</span>Gastos fijos</a>
             <a class="{{ request()->routeIs('movements.*') ? 'active' : '' }}" href="{{ route('movements.index') }}"><span>↕</span>Movimientos</a>
             <a class="{{ request()->routeIs('personal.*') ? 'active' : '' }}" href="{{ route('personal.index') }}"><span>◷</span>Finanzas personales</a>
         </nav>
@@ -38,6 +40,8 @@
         <nav class="bottom-nav" aria-label="Navegación móvil">
             <a class="{{ request()->routeIs('dashboard') ? 'active' : '' }}" href="{{ route('dashboard') }}"><span>▦</span><small>Inicio</small></a>
             <a class="{{ request()->routeIs('clients.*') ? 'active' : '' }}" href="{{ route('clients.index') }}"><span>♧</span><small>Clientes</small></a>
+            <a class="{{ request()->routeIs('infrastructure.*') ? 'active' : '' }}" href="{{ route('infrastructure.index') }}"><span>◫</span><small>Infra</small></a>
+            <a class="{{ request()->routeIs('fixed-expenses.*') ? 'active' : '' }}" href="{{ route('fixed-expenses.index') }}"><span>↻</span><small>Gastos</small></a>
             <a class="{{ request()->routeIs('movements.*') ? 'active' : '' }}" href="{{ route('movements.index') }}"><span>↕</span><small>Movimientos</small></a>
             <a class="{{ request()->routeIs('personal.*') ? 'active' : '' }}" href="{{ route('personal.index') }}"><span>◷</span><small>Personal</small></a>
         </nav>

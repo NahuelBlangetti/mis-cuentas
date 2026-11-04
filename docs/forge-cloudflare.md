@@ -79,7 +79,9 @@ Si el health check de Forge encuentra Access y falla, ajustar el health check o 
 
 ## 5. Instalaciones y siguientes integraciones
 
-Al crear un cliente, la aplicación lleva a la carga de instalaciones. Permite varias bases MySQL/MariaDB. Cifra todos los datos de conexión con la `APP_KEY`, oculta esos datos en la serialización y no vuelve a mostrar las contraseñas. La cantidad de sistemas para facturación sigue siendo el dato manual del cliente; no se modifica al cargar una instalación.
+Al crear un cliente, la aplicación lleva a la carga de instalaciones. Cada instalación admite varias bases MySQL/MariaDB y se puede vincular al servidor donde corre; cada base, al clúster que la aloja. Ambos se registran en “Infraestructura”. Cifra todos los datos de conexión con la `APP_KEY`, oculta esos datos en la serialización y no vuelve a mostrar las contraseñas. La cantidad de sistemas para facturación sigue siendo el dato manual del cliente; no se modifica al cargar una instalación.
+
+La migración `2026_11_03_000003_split_installation_databases` mueve la conexión de cada instalación existente a una base llamada “Principal”. Copia el texto cifrado sin descifrarlo, así que requiere la misma `APP_KEY`. Hacer un backup de la base antes de desplegarla.
 
 Esta etapa **registra** las conexiones: no verifica conectividad, no consulta producción ni abre sesiones de administrador. El enlace “Abrir sistema” abre la URL habitual y no autentica al usuario.
 

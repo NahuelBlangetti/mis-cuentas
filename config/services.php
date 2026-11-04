@@ -40,4 +40,10 @@ return [
         'alias' => env('TRANSFER_ALIAS', 'BLANGETTI.NAHUEL'),
     ],
 
+    // Cotización del dólar para los gastos fijos: precio de compra de USDC en Arq, desde la API pública de comparadolar.ar.
+    'exchange_rate' => [
+        'url' => env('EXCHANGE_RATE_URL', 'https://api.comparadolar.ar/usdc'),
+        'provider' => env('EXCHANGE_RATE_PROVIDER', 'arq'),
+    ],
+
 ];
