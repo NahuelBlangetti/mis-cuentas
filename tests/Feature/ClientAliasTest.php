@@ -58,6 +58,17 @@ class ClientAliasTest extends TestCase
         $this->assertStringNotContainsString('Gringo', $message);
     }
 
+    public function test_el_buscador_aparece_desde_diez_clientes(): void
+    {
+        foreach (range(1, 9) as $number) $this->user->clients()->create($this->data(['name' => "Cliente $number"]));
+        $this->actingAs($this->user)->get(route('clients.index'))->assertOk()->assertDontSee('data-client-search', false);
+
+        $this->user->clients()->create($this->data(['name' => 'José Núñez', 'alias' => 'Punto Manija', 'phone' => '5493511234567']));
+        $this->actingAs($this->user)->get(route('clients.index'))->assertOk()
+            ->assertSee('data-client-search', false)->assertSee('data-client-search-empty', false)
+            ->assertSee('data-search="José Núñez Punto Manija" data-search-phone="5493511234567"', false);
+    }
+
     private function data(array $attributes = []): array
     {
         return ['name' => 'Juan Pérez', 'systems' => 1, 'monthly_fee' => 27500, 'due_day' => 10, ...$attributes];

@@ -49,6 +49,23 @@
     document.querySelectorAll('[data-close-client]').forEach((button) => button.addEventListener('click', () => modal?.close()));
     modal?.addEventListener('click', (event) => { if (event.target === modal) modal.close(); });
 
+    // Buscador de la cartera: filtra por nombre o alias sin importar mayúsculas ni tildes, y por los dígitos del celular.
+    const clientSearch = document.querySelector('[data-client-search]');
+    const fold = (text) => text.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const clientCards = [...document.querySelectorAll('[data-client-card]')].map((card) => ({
+        card, text: fold(card.dataset.search || ''), phone: card.dataset.searchPhone || '',
+    }));
+    clientSearch?.addEventListener('input', () => {
+        const query = fold(clientSearch.value);
+        const digits = query.replace(/\D/g, '');
+        let visible = 0;
+        clientCards.forEach(({ card, text, phone }) => {
+            card.hidden = query !== '' && !text.includes(query) && !(digits.length >= 3 && phone.includes(digits));
+            if (!card.hidden) visible += 1;
+        });
+        document.querySelector('[data-client-search-empty]').hidden = visible > 0;
+    });
+
     document.querySelectorAll('[data-payment-month]').forEach((select) => select.addEventListener('change', () => {
         const owed = select.selectedOptions[0].dataset.owed;
         select.form.elements.amount.value = Number(owed) > 0 ? owed : select.dataset.fee;

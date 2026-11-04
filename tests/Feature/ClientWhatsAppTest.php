@@ -87,7 +87,17 @@ class ClientWhatsAppTest extends TestCase
         $this->actingAs($this->user)->get(route('dashboard'))->assertSee('https://wa.me/5493511234567?text=', false);
 
         $this->actingAs($this->user)->post(route('clients.payment', $withPhone), ['amount' => 27500, 'date' => '2026-11-02', 'billing_month' => '2026-11'])->assertSessionHasNoErrors();
-        $this->actingAs($this->user)->get(route('clients.index'))->assertDontSee('https://wa.me/', false);
+        $this->actingAs($this->user)->get(route('clients.index'))->assertDontSee('?text=', false);
+    }
+
+    public function test_el_chat_de_whatsapp_se_abre_desde_la_cartera_aunque_no_deba(): void
+    {
+        $this->user->clients()->create($this->data(['name' => 'Con celular', 'phone' => '5493511234567', 'active' => false]));
+        $this->user->clients()->create($this->data(['name' => 'Sin celular', 'active' => false]));
+
+        $page = $this->actingAs($this->user)->get(route('clients.index'))->assertOk();
+        $page->assertSee('href="https://wa.me/5493511234567"', false)->assertSee('Abrir chat')->assertDontSee('?text=', false);
+        $this->assertSame(1, substr_count($page->getContent(), 'href="https://wa.me/'));
     }
 
     private function data(array $attributes = []): array
