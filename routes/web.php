@@ -10,6 +10,7 @@ use App\Http\Controllers\InstallationDatabaseController;
 use App\Http\Controllers\MovementController;
 use App\Http\Controllers\PersonalExpenseController;
 use App\Http\Controllers\PersonalRecurringExpenseController;
+use App\Http\Middleware\EnsureOwner;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/manifest.webmanifest', fn () => response()->file(public_path('manifest.webmanifest'), ['Content-Type' => 'application/manifest+json']))->name('pwa.manifest');
@@ -19,7 +20,7 @@ Route::get('/login', [AuthController::class, 'create'])->middleware('guest')->na
 Route::post('/login', [AuthController::class, 'store'])->middleware(['guest', 'throttle:5,1'])->name('login.store');
 Route::post('/logout', [AuthController::class, 'destroy'])->middleware('auth')->name('logout');
 
-Route::middleware(['auth', \App\Http\Middleware\EnsureOwner::class])->group(function () {
+Route::middleware(['auth', EnsureOwner::class])->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
     Route::get('/clientes', [ClientController::class, 'index'])->name('clients.index');
     Route::get('/clientes/{client}/instalaciones', [ClientInstallationController::class, 'index'])->name('clients.installations.index');
@@ -51,12 +52,11 @@ Route::middleware(['auth', \App\Http\Middleware\EnsureOwner::class])->group(func
     Route::get('/movimientos/exportar.csv', [MovementController::class, 'export'])->name('movements.export');
     Route::post('/movimientos', [MovementController::class, 'store'])->name('movements.store');
     Route::put('/movimientos/{transaction}', [MovementController::class, 'update'])->name('movements.update');
-    Route::delete('/movimientos/{transaction}',[MovementController::class, 'destroy'])->name('movements.destroy');
+    Route::delete('/movimientos/{transaction}', [MovementController::class, 'destroy'])->name('movements.destroy');
     Route::get('/finanzas-personales', [PersonalExpenseController::class, 'index'])->name('personal.index');
     Route::post('/finanzas-personales/gastos', [PersonalExpenseController::class, 'store'])->name('personal.expenses.store');
     Route::put('/finanzas-personales/gastos/{expense}', [PersonalExpenseController::class, 'update'])->name('personal.expenses.update');
     Route::delete('/finanzas-personales/gastos/{expense}', [PersonalExpenseController::class, 'destroy'])->name('personal.expenses.destroy');
-    Route::post('/finanzas-personales/recurrentes', [PersonalRecurringExpenseController::class, 'store'])->name('personal.recurring.store');
     Route::put('/finanzas-personales/recurrentes/{recurring}', [PersonalRecurringExpenseController::class, 'update'])->name('personal.recurring.update');
     Route::delete('/finanzas-personales/recurrentes/{recurring}', [PersonalRecurringExpenseController::class, 'destroy'])->name('personal.recurring.destroy');
     Route::post('/finanzas-personales/recurrentes/{recurring}/importes', [PersonalRecurringExpenseController::class, 'storeAmount'])->name('personal.recurring.amounts.store');

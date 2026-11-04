@@ -16,7 +16,9 @@ class PersonalExpenses
     public static function withCurrentRate(User $user, string $month): array
     {
         $report = self::report($user, $month);
-        if (! $report['needsRate'] || $report['rate']) return [$report, false];
+        if (! $report['needsRate'] || $report['rate']) {
+            return [$report, false];
+        }
         $stored = FixedExpenses::attemptCurrentRate($user, $month);
 
         return $stored ? [self::report($user, $month), false] : [$report, $stored === false];
@@ -27,8 +29,8 @@ class PersonalExpenses
     public static function report(User $user, string $month): array
     {
         $date = Carbon::createFromFormat('!Y-m', $month);
-        $rate = $user->exchangeRates()->where('currency', 'USD')->where('month', $month)->first();
-        $recurring = $user->personalRecurringExpenses()->with(['amounts' => fn ($query) => $query->orderByDesc('effective_from')])->get()
+        $rate = Ledger::exchangeRate($user, $month);
+        $recurring = Ledger::recurringExpenses($user)
             ->map(function (PersonalRecurringExpense $expense) use ($month, $rate) {
                 $amount = $expense->amountFor($month);
                 $ars = match (true) {
@@ -46,8 +48,13 @@ class PersonalExpenses
                 return ['expense' => $expense, 'amount' => $amount, 'status' => $status, 'ars' => $ars === null ? null : round($ars, 2)];
             })
             ->sortBy(fn ($row) => self::ORDER[$row['status']].'|'.$row['expense']->category.'|'.mb_strtolower($row['expense']->name))->values();
-        $expenses = $user->personalExpenses()->whereBetween('date', [$date->copy()->startOfMonth()->toDateString(), $date->copy()->endOfMonth()->toDateString()])
-            ->latest('date')->latest('id')->get();
+        $start = $date->copy()->startOfMonth()->toDateString();
+        $end = $date->copy()->endOfMonth()->toDateString();
+        $expenses = Ledger::personalExpenses($user)->filter(function (PersonalExpense $expense) use ($start, $end) {
+            $day = $expense->date->toDateString();
+
+            return $day >= $start && $day <= $end;
+        })->sortByDesc(fn (PersonalExpense $expense) => $expense->date->format('Y-m-d').sprintf('%010d', $expense->id))->values();
 
         $counted = $recurring->where('status', 'ok');
         $recurringTotal = round($counted->sum('ars'), 2);

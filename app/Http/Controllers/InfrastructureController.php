@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\InfrastructureResource;
 use App\Models\InfrastructureResourceShare;
+use App\Services\Ledger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -15,9 +16,7 @@ class InfrastructureController extends Controller
     public function index(Request $request): View
     {
         $month = Carbon::now()->format('Y-m');
-        $resources = $request->user()->infrastructureResources()
-            ->with(['shares' => fn ($query) => $query->orderByDesc('effective_from'), 'installations.client', 'databases.installation.client'])
-            ->withCount('fixedExpenses')->orderByDesc('active')->orderBy('name')->get();
+        $resources = Ledger::resources($request->user())->sortBy(fn ($resource) => ($resource->active ? '0' : '1').mb_strtolower($resource->name))->values();
         $active = $resources->where('active', true);
 
         return view('infrastructure.index', [

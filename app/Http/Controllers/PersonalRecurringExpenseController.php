@@ -2,37 +2,25 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\FixedExpense;
 use App\Models\PersonalExpense;
 use App\Models\PersonalRecurringAmount;
 use App\Models\PersonalRecurringExpense;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
+// El alta está en PersonalExpenseController::store, en el mismo formulario que los gastos de una sola vez.
 class PersonalRecurringExpenseController extends Controller
 {
-    public function store(Request $request): RedirectResponse
-    {
-        $data = $this->validated($request, null, [
-            'amount' => ['required', 'numeric', 'decimal:0,2', 'min:0.01', 'max:9999999999'],
-            'effective_from' => ['required', 'date_format:Y-m'],
-        ]);
-        $amount = Arr::only($data, ['amount', 'effective_from']);
-        DB::transaction(fn () => $request->user()->personalRecurringExpenses()->create(Arr::except($data, ['amount', 'effective_from']))->amounts()->create($amount));
-
-        // Un gasto que empieza en un mes futuro se muestra desde el mes en curso.
-        return redirect()->route('personal.index', ['mes' => min($amount['effective_from'], Carbon::now()->format('Y-m'))])->with('success', 'Gasto recurrente agregado.');
-    }
-
     // La moneda no se cambia: reinterpretaría todos los importes ya cargados.
     public function update(Request $request, PersonalRecurringExpense $recurring): RedirectResponse
     {
         abort_unless($recurring->user_id === $request->user()->id, 404);
-        $recurring->update($this->validated($request, $recurring));
+        $recurring->update($request->validate([
+            'name' => ['required', 'string', 'max:160'],
+            'category' => ['required', Rule::in(array_keys(PersonalExpense::CATEGORIES))],
+            'notes' => ['nullable', 'string', 'max:5000'],
+        ], ['category.required' => 'Elegí una categoría.']));
 
         return back()->with('success', 'Gasto recurrente actualizado.');
     }
@@ -64,16 +52,5 @@ class PersonalRecurringExpenseController extends Controller
         $amount->delete();
 
         return back()->with('success', 'Importe eliminado.');
-    }
-
-    private function validated(Request $request, ?PersonalRecurringExpense $recurring, array $extra = []): array
-    {
-        return $request->validate([
-            ...$extra,
-            'name' => ['required', 'string', 'max:160'],
-            'category' => ['required', Rule::in(array_keys(PersonalExpense::CATEGORIES))],
-            ...($recurring ? [] : ['currency' => ['required', Rule::in(array_keys(FixedExpense::CURRENCIES))]]),
-            'notes' => ['nullable', 'string', 'max:5000'],
-        ], ['category.required' => 'Elegí una categoría.']);
     }
 }

@@ -10,9 +10,7 @@
     <link rel="manifest" href="{{ route('pwa.manifest') }}">
     <link rel="icon" href="{{ asset_version('icon.svg') }}" type="image/svg+xml">
     <link rel="apple-touch-icon" href="{{ asset_version('icon-180.png') }}">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preload" href="{{ asset_version('fonts/plus-jakarta-sans-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="{{ asset_version('css/app.css') }}">
     <title>@yield('title', 'Mis cuentas') · Mis cuentas</title>
 </head>

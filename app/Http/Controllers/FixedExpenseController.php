@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\FixedExpense;
 use App\Models\FixedExpenseAmount;
 use App\Services\FixedExpenses;
+use App\Services\Ledger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
@@ -24,12 +25,13 @@ class FixedExpenseController extends Controller
         [$report, $rateFailed] = FixedExpenses::withCurrentRate($user, $month);
 
         $date = Carbon::createFromFormat('!Y-m', $month);
+
         return view('fixed-expenses.index', [
             ...$report, 'month' => $month, 'isCurrent' => $month === $current->format('Y-m'), 'rateFailed' => $rateFailed,
             'monthLabel' => $date->locale('es')->translatedFormat('F Y'),
             'previousMonth' => $date->copy()->subMonth()->format('Y-m'),
             'nextMonth' => $date->lt($current) ? $date->copy()->addMonth()->format('Y-m') : null,
-            'resources' => $user->infrastructureResources()->orderByDesc('active')->orderBy('name')->get(['id', 'name', 'active']),
+            'resources' => Ledger::resources($user)->sortBy(fn ($resource) => ($resource->active ? '0' : '1').mb_strtolower($resource->name))->values(),
         ]);
     }
 
@@ -87,7 +89,9 @@ class FixedExpenseController extends Controller
     public function refreshRate(Request $request): RedirectResponse
     {
         $quote = FixedExpenses::fetchRate();
-        if (! $quote) return back()->withErrors(['rate' => 'No se pudo obtener la cotización de Arq. Probá más tarde o cargala a mano.']);
+        if (! $quote) {
+            return back()->withErrors(['rate' => 'No se pudo obtener la cotización de Arq. Probá más tarde o cargala a mano.']);
+        }
         FixedExpenses::storeRate($request->user(), Carbon::now()->format('Y-m'), $quote['rate'], 'arq', $quote['quoted_at']);
 
         return back()->with('success', 'Cotización actualizada: '.money($quote['rate']).' por dólar.');

@@ -2,7 +2,6 @@
 
 namespace App\Services;
 
-use App\Models\Charge;
 use App\Models\Client;
 use App\Models\User;
 use Illuminate\Support\Carbon;
@@ -15,11 +14,15 @@ class Billing
     public static function sync(User $user): void
     {
         $current = Carbon::now()->startOfMonth();
-        foreach ($user->clients()->where('active', true)->withMax('charges', 'billing_month')->get() as $client) {
-            $last = $client->charges_max_billing_month;
+        foreach (Ledger::clients($user)->where('active', true) as $client) {
+            $last = $client->charges->max('billing_month');
             $month = $last ? Carbon::createFromFormat('!Y-m', $last)->addMonth() : $current->copy();
             for (; $month->lte($current); $month->addMonth()) {
-                $client->charges()->firstOrCreate(['billing_month' => $month->format('Y-m')], ['amount' => $client->monthly_fee]);
+                $key = $month->format('Y-m');
+                if ($client->charges->contains('billing_month', $key)) {
+                    continue;
+                }
+                $client->charges()->firstOrCreate(['billing_month' => $key], ['amount' => $client->monthly_fee]);
             }
         }
     }
@@ -30,6 +33,7 @@ class Billing
         $month = Carbon::now()->format('Y-m');
         if (! $client->transactions()->where('billing_month', $month)->exists()) {
             $client->charges()->where('billing_month', $month)->delete();
+            Ledger::flush();
         }
     }
 
@@ -43,10 +47,10 @@ class Billing
     // Un sobrepago no compensa otros meses ni otros clientes. Se calcula en centavos para evitar errores de float.
     public static function balances(User $user, string $month): Collection
     {
-        $charges = Charge::query()->whereIn('client_id', $user->clients()->select('id'))->get(['client_id', 'billing_month', 'amount'])->groupBy('client_id');
-        $payments = $user->transactions()->whereNotNull('client_id')->where('type', 'income')->get(['client_id', 'billing_month', 'amount'])->groupBy('client_id');
+        $charges = Ledger::clients($user)->flatMap(fn (Client $client) => $client->charges)->groupBy('client_id');
+        $payments = Ledger::transactions($user)->whereNotNull('client_id')->where('type', 'income')->groupBy('client_id');
 
-        return $user->clients()->pluck('id')->mapWithKeys(function ($id) use ($charges, $payments, $month) {
+        return Ledger::clients($user)->pluck('id')->mapWithKeys(function ($id) use ($charges, $payments, $month) {
             $clientCharges = $charges->get($id, collect());
             $paid = $payments->get($id, collect())->groupBy('billing_month')->map(fn ($rows) => $rows->sum(fn ($row) => self::cents($row->amount)));
             $owed = $clientCharges->mapWithKeys(fn ($charge) => [$charge->billing_month => max(0, self::cents($charge->amount) - $paid->get($charge->billing_month, 0))])->filter()->sortKeys();
@@ -73,5 +77,8 @@ class Billing
         return Carbon::createFromFormat('!Y-m', $month)->locale('es')->translatedFormat('F Y');
     }
 
-    private static function cents(string|int|float $amount): int { return (int) round((float) $amount * 100); }
+    private static function cents(string|int|float $amount): int
+    {
+        return (int) round((float) $amount * 100);
+    }
 }

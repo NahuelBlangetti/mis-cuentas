@@ -1,10 +1,11 @@
+@use('App\Models\FixedExpense')
 @use('App\Models\PersonalExpense')
 @use('App\Services\Billing')
 @extends('layouts.app')
 @section('title', 'Finanzas personales')
 @section('content')
 @php($tags = ['ok' => ['state-active', 'Vigente'], 'pending_rate' => ['state-warn', 'Falta cotización'], 'ended' => ['state-paused', 'De baja']])
-{{-- Los datos que no pasaron la validación vuelven solo al formulario que los envió: los dos usan importe y categoría. --}}
+{{-- Los datos que no pasaron la validación vuelven solo al formulario que los envió: el historial de importes también usa importe y mes. --}}
 @php($oldExpense = old('form') === 'expense')
 <div class="page-heading"><div><p class="eyebrow">{{ ucfirst($monthLabel) }}</p><h1>Finanzas personales</h1><p class="muted">Tus gastos personales, aparte del negocio. Los recurrentes se suman solos cada mes; el resto lo cargás cuando lo gastás.</p></div><a class="button button-primary" href="#nuevo-gasto">+ <span>Cargar gasto</span></a></div>
 @if ($rateFailed)<div class="flash warn" role="status">No se pudo obtener la cotización de Arq. Los gastos en dólares no suman hasta que la actualices o la cargues a mano.</div>@endif
@@ -21,13 +22,23 @@
             @empty <div class="empty-state">No hay gastos cargados en {{ $monthLabel }}.</div> @endforelse
         </div>
     </section>
-    <section class="panel" id="nuevo-gasto"><div class="panel-heading"><div><h2>{{ $editing ? 'Editar gasto' : 'Cargar gasto' }}</h2><p>{{ $editing ? 'Cambiá los datos y guardá.' : 'Súper, salidas, una compra: lo que no se paga todos los meses.' }}</p></div></div>
-        <form method="post" action="{{ $editing ? route('personal.expenses.update', $editing) : route('personal.expenses.store') }}" class="form-grid movement-form">@csrf @if ($editing) @method('PUT') @endif<input type="hidden" name="form" value="expense">
-            <label class="field field-wide"><span>Descripción</span><input name="description" maxlength="180" value="{{ $oldExpense ? old('description') : $editing?->description }}" placeholder="Ej. súper, nafta, regalo" required></label>
-            <label class="field"><span>Importe ($)</span><input name="amount" type="number" min="0.01" step="0.01" value="{{ $oldExpense ? old('amount') : $editing?->amount }}" placeholder="0" required></label>
-            <label class="field"><span>Fecha</span><input name="date" type="date" value="{{ $oldExpense ? old('date') : ($editing?->date->toDateString() ?? $defaultDate) }}" required></label>
+    {{-- Un gasto ya cargado no cambia de tipo: los recurrentes se editan desde su tarjeta. --}}
+    @php($kind = $editing ? 'once' : ($oldExpense ? old('kind', 'once') : $kind))
+    <section class="panel" id="nuevo-gasto"><div class="panel-heading"><div><h2>{{ $editing ? 'Editar gasto' : 'Cargar gasto' }}</h2><p>{{ $editing ? 'Cambiá los datos y guardá.' : 'Elegí si lo pagás una sola vez o todos los meses.' }}</p></div></div>
+        <form method="post" action="{{ $editing ? route('personal.expenses.update', $editing) : route('personal.expenses.store') }}" class="form-grid movement-form" data-expense-form>@csrf @if ($editing) @method('PUT') @endif<input type="hidden" name="form" value="expense">
+            @unless ($editing)
+                <fieldset class="kind-choice field-wide"><legend>¿Cada cuánto lo pagás?</legend>
+                    <label class="kind-option"><input type="radio" name="kind" value="once" @checked($kind === 'once') data-expense-kind><span><b>Una sola vez</b><small>Súper, nafta, una salida</small></span></label>
+                    <label class="kind-option"><input type="radio" name="kind" value="monthly" @checked($kind === 'monthly') data-expense-kind><span><b>Todos los meses</b><small>Alquiler, servicios, suscripciones</small></span></label>
+                </fieldset>
+            @endunless
+            <label class="field field-wide"><span>Descripción</span><input name="description" maxlength="180" value="{{ $oldExpense ? old('description') : $editing?->description }}" placeholder="Ej. súper, alquiler, Netflix" required></label>
+            <label class="field"><span>Importe</span><input name="amount" type="number" min="0.01" step="0.01" value="{{ $oldExpense ? old('amount') : $editing?->amount }}" placeholder="0" required></label>
+            <label class="field" data-kind="once" @if ($kind !== 'once') hidden @endif><span>Fecha</span><input name="date" type="date" value="{{ $oldExpense ? old('date', $defaultDate) : ($editing?->date->toDateString() ?? $defaultDate) }}" @disabled($kind !== 'once') required></label>
+            <label class="field" data-kind="monthly" @if ($kind !== 'monthly') hidden @endif><span>Moneda</span><select name="currency" @disabled($kind !== 'monthly') required>@foreach (FixedExpense::CURRENCIES as $value => $label)<option value="{{ $value }}" @selected(($oldExpense ? old('currency', 'ARS') : 'ARS') === $value)>{{ $label }}</option>@endforeach</select></label>
+            <label class="field" data-kind="monthly" @if ($kind !== 'monthly') hidden @endif><span>Desde (mes)</span><input name="effective_from" type="month" value="{{ $oldExpense ? old('effective_from', $month) : $month }}" placeholder="AAAA-MM" @disabled($kind !== 'monthly') required><small class="field-hint">Se suma solo cada mes. Si cambia el precio, cargalo desde su historial.</small></label>
             <label class="field field-wide"><span>Categoría</span><select name="category" required><option value="">Elegí una categoría</option>@foreach (PersonalExpense::CATEGORIES as $value => $label)<option value="{{ $value }}" @selected(($oldExpense ? old('category') : $editing?->category) === $value)>{{ $label }}</option>@endforeach</select></label>
-            <div class="field-wide form-submit">@if ($editing)<a class="button button-quiet" href="{{ route('personal.index', ['mes' => $month]) }}">Cancelar edición</a>@endif<button class="button button-primary" type="submit">{{ $editing ? 'Guardar cambios' : 'Guardar gasto' }}</button></div>
+            <div class="field-wide form-submit">@if ($editing)<a class="button button-quiet" href="{{ route('personal.index', ['mes' => $month]) }}">Cancelar edición</a>@endif<button class="button button-primary" type="submit" data-expense-submit>{{ $editing ? 'Guardar cambios' : ($kind === 'monthly' ? 'Guardar gasto recurrente' : 'Guardar gasto') }}</button></div>
         </form>
     </section>
 </div>
@@ -40,7 +51,7 @@
         </div>
     </section>
 @endif
-<section class="panel client-panel" id="recurrentes"><div class="panel-heading"><div><h2>Gastos recurrentes</h2><p>Alquiler, servicios, suscripciones: lo que pagás todos los meses. Cada uno suma desde su mes de inicio hasta que lo des de baja.</p></div><a class="text-link" href="#nuevo-recurrente">+ Agregar recurrente</a></div>
+<section class="panel client-panel" id="recurrentes"><div class="panel-heading"><div><h2>Gastos recurrentes</h2><p>Alquiler, servicios, suscripciones: lo que pagás todos los meses. Cada uno suma desde su mes de inicio hasta que lo des de baja.</p></div><a class="text-link" href="{{ route('personal.index', ['mes' => $month, 'tipo' => 'recurrente']) }}#nuevo-gasto">+ Agregar recurrente</a></div>
     @if ($needsRate)
         <div class="stacked-details panel-body">
             <p class="field-hint">Dólar de {{ $monthLabel }}: <b class="{{ $rate ? '' : 'text-warn' }}">{{ $rate ? money($rate->rate).' · '.$rate->sourceLabel() : 'sin cotización' }}</b>. Es la misma cotización que usan los Gastos fijos.</p>
@@ -93,18 +104,7 @@
             </div>
             <div class="client-actions"><form method="post" action="{{ route('personal.recurring.destroy', $bill) }}" data-confirm="¿Eliminar este gasto y todo su historial? Si lo dejaste de pagar, mejor cargá un importe 0 desde ese mes.">@csrf @method('DELETE')<button class="button button-small button-quiet" type="submit">Eliminar gasto</button></form></div>
         </article>
-    @empty <div class="empty-state">Todavía no hay gastos recurrentes. Empezá por el alquiler, los servicios y tus suscripciones.</div> @endforelse
-</section>
-<section class="panel" id="nuevo-recurrente">
-    <div class="panel-heading"><div><h2>Agregar gasto recurrente</h2><p>Si cambia de precio más adelante, agregá un importe nuevo desde su historial: los meses anteriores conservan el que tenían.</p></div></div>
-    <form method="post" action="{{ route('personal.recurring.store') }}">@csrf<input type="hidden" name="form" value="recurring">
-        @include('personal.recurring-fields', ['item' => null])
-        <div class="form-grid">
-            <label class="field"><span>Importe mensual</span><input type="number" name="amount" min="0.01" step="0.01" value="{{ old('form') === 'recurring' ? old('amount') : '' }}" placeholder="Ej. 25000" required></label>
-            <label class="field"><span>Desde (mes)</span><input type="month" name="effective_from" value="{{ old('form') === 'recurring' ? old('effective_from') : $month }}" placeholder="AAAA-MM" required></label>
-        </div>
-        <div class="modal-actions"><button class="button button-primary" type="submit">Guardar gasto recurrente</button></div>
-    </form>
+    @empty <div class="empty-state">Todavía no hay gastos recurrentes. <a class="text-link" href="{{ route('personal.index', ['mes' => $month, 'tipo' => 'recurrente']) }}#nuevo-gasto">Cargá el alquiler, los servicios o tus suscripciones →</a></div> @endforelse
 </section>
 <p class="privacy-note">Por ahora acá solo se guardan gastos. Lo que cobrás a tus clientes sale de Clientes y cobros y de Movimientos.</p>
 @endsection

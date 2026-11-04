@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Client;
 use App\Models\ClientInstallation;
 use App\Models\InstallationDatabase;
+use App\Services\Ledger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,8 +20,8 @@ class ClientInstallationController extends Controller
 
         return view('clients.installations', [
             'client' => $client,
-            'installations' => $client->installations()->with(['resource', 'databases.resource'])->orderBy('name')->get(),
-            'resources' => $request->user()->infrastructureResources()->orderByDesc('active')->orderBy('name')->get(),
+            'installations' => Ledger::installations($request->user())->where('client_id', $client->id)->sortBy(fn ($installation) => mb_strtolower($installation->name))->values(),
+            'resources' => Ledger::resources($request->user())->sortBy(fn ($resource) => ($resource->active ? '0' : '1').mb_strtolower($resource->name))->values(),
         ]);
     }
 

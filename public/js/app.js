@@ -123,6 +123,21 @@
         movementCancel.hidden = true;
     });
 
+    // Gasto personal: una sola vez lleva fecha; todos los meses lleva moneda y mes de inicio.
+    // Los campos del otro tipo quedan ocultos y deshabilitados para que no se envíen ni se exijan.
+    const expenseForm = document.querySelector('[data-expense-form]');
+    const syncExpenseKind = () => {
+        const kind = expenseForm?.querySelector('[data-expense-kind]:checked')?.value;
+        if (!kind) return;
+        expenseForm.querySelectorAll('[data-kind]').forEach((field) => {
+            field.hidden = field.dataset.kind !== kind;
+            field.querySelectorAll('input, select').forEach((input) => { input.disabled = field.hidden; });
+        });
+        expenseForm.querySelector('[data-expense-submit]').textContent = kind === 'monthly' ? 'Guardar gasto recurrente' : 'Guardar gasto';
+    };
+    expenseForm?.querySelectorAll('[data-expense-kind]').forEach((radio) => radio.addEventListener('change', syncExpenseKind));
+    syncExpenseKind();
+
     document.querySelectorAll('[data-autosubmit]').forEach((field) => field.addEventListener('change', () => field.form.submit()));
     document.querySelectorAll('form[data-confirm]').forEach((confirmForm) => confirmForm.addEventListener('submit', (event) => {
         if (!window.confirm(confirmForm.dataset.confirm)) event.preventDefault();

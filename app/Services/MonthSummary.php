@@ -13,8 +13,13 @@ class MonthSummary
     public static function business(User $user, string $month, array $fixed): array
     {
         $date = Carbon::createFromFormat('!Y-m', $month);
-        $business = $user->transactions()->where('area', 'business')
-            ->whereBetween('date', [$date->copy()->startOfMonth()->toDateString(), $date->copy()->endOfMonth()->toDateString()])->get();
+        $start = $date->copy()->startOfMonth()->toDateString();
+        $end = $date->copy()->endOfMonth()->toDateString();
+        $business = Ledger::transactions($user)->filter(function ($transaction) use ($start, $end) {
+            $day = $transaction->date->toDateString();
+
+            return $transaction->area === 'business' && $day >= $start && $day <= $end;
+        });
         $income = $business->where('type', 'income');
 
         $summary = [

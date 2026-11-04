@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Client;
 use App\Services\Billing;
+use App\Services\Ledger;
 use App\Services\WhatsApp;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -19,8 +20,10 @@ class ClientController extends Controller
         $user = request()->user();
         $month = Carbon::now()->format('Y-m');
         Billing::sync($user);
-        $clients = $user->clients()->withCount(['transactions' => fn ($q) => $q->where('billing_month', $month)])->orderByDesc('active')->orderBy('name')->get();
+        $clients = Ledger::clients($user)->sortBy(fn ($client) => ($client->active ? '0' : '1').mb_strtolower($client->name))->values();
+        $clients->each(fn ($client) => $client->transactions_count = $client->transactions->where('billing_month', $month)->count());
         $active = $clients->where('active', true);
+
         return view('clients.index', [
             'clients' => $clients, 'balances' => Billing::balances($user, $month), 'month' => $month,
             'activeCount' => $active->count(), 'systemsCount' => $active->sum('systems'), 'paymentsCount' => $clients->sum('transactions_count'),
@@ -31,6 +34,7 @@ class ClientController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $client = $request->user()->clients()->create($this->validated($request));
+
         return redirect()->route('clients.installations.index', $client)->with('success', 'Cliente agregado. Cargá sus instalaciones y bases de producción.');
     }
 
@@ -39,7 +43,11 @@ class ClientController extends Controller
         abort_unless($client->user_id === $request->user()->id, 404);
         $client->update($this->validated($request));
         // El nuevo abono rige desde el mes actual; los meses anteriores conservan el monto que tenían.
-        if ($client->wasChanged('monthly_fee')) $client->charges()->where('billing_month', Carbon::now()->format('Y-m'))->update(['amount' => $client->monthly_fee]);
+        if ($client->wasChanged('monthly_fee')) {
+            $client->charges()->where('billing_month', Carbon::now()->format('Y-m'))->update(['amount' => $client->monthly_fee]);
+            Ledger::flush();
+        }
+
         return back()->with('success', 'Cliente actualizado.');
     }
 
@@ -52,8 +60,10 @@ class ClientController extends Controller
             Billing::sync($request->user());
             $client->update(['active' => ! $client->active]);
             $client->active ? Billing::resume($client) : Billing::pause($client);
+
             return $client;
         });
+
         return back()->with('success', $client->active ? 'Cliente reactivado.' : 'Cliente pausado.');
     }
 
@@ -79,6 +89,7 @@ class ClientController extends Controller
                 'amount' => $input['amount'], 'date' => $input['date'], 'billing_month' => $input['billing_month'],
             ]);
         });
+
         return back()->with('success', 'Cobro registrado.');
     }
 
@@ -88,11 +99,14 @@ class ClientController extends Controller
             'name' => ['required', 'string', 'max:160'], 'alias' => ['nullable', 'string', 'max:80'],
             'systems' => ['required', 'integer', 'min:1', 'max:1000'],
             'phone' => ['nullable', 'string', 'max:30', function ($attribute, $value, $fail) {
-                if (WhatsApp::normalize($value) === null) $fail('Ingresá el celular con código de área, sin 0 ni 15. Ej. 351 1234567.');
+                if (WhatsApp::normalize($value) === null) {
+                    $fail('Ingresá el celular con código de área, sin 0 ni 15. Ej. 351 1234567.');
+                }
             }],
             'monthly_fee' => ['required', 'numeric', 'min:0', 'max:9999999999'], 'due_day' => ['required', 'integer', 'min:1', 'max:28'],
             'notes' => ['nullable', 'string', 'max:5000'],
         ]);
+
         return [...$data, 'phone' => WhatsApp::normalize($data['phone'] ?? null)];
     }
 }

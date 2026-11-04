@@ -20,16 +20,19 @@ class FixedExpenses
     public static function fetchRate(): ?array
     {
         try {
-            $response = Http::acceptJson()->timeout(6)->get(config('services.exchange_rate.url'));
+            $response = Http::acceptJson()->connectTimeout(2)->timeout(3)->get(config('services.exchange_rate.url'));
             $quotes = $response->successful() ? $response->json() : null;
         } catch (Throwable $e) {
             Log::warning('No se pudo consultar la cotización del dólar.', ['error' => $e->getMessage()]);
+
             return null;
         }
 
         $quote = collect(is_array($quotes) ? $quotes : [])->first(fn ($item) => is_array($item) && ($item['slug'] ?? null) === config('services.exchange_rate.provider'));
         $ask = $quote['totalAsk'] ?? $quote['ask'] ?? null;
-        if (! is_numeric($ask) || (float) $ask <= 0 || ($quote['stale'] ?? false) === true) return null;
+        if (! is_numeric($ask) || (float) $ask <= 0 || ($quote['stale'] ?? false) === true) {
+            return null;
+        }
 
         return ['rate' => round((float) $ask, 4), 'quoted_at' => self::quoteTime($quote['time'] ?? null)];
     }
@@ -39,7 +42,9 @@ class FixedExpenses
     public static function withCurrentRate(User $user, string $month): array
     {
         $report = self::report($user, $month);
-        if (! $report['needsRate'] || $report['rate']) return [$report, false];
+        if (! $report['needsRate'] || $report['rate']) {
+            return [$report, false];
+        }
         $stored = self::attemptCurrentRate($user, $month);
 
         return $stored ? [self::report($user, $month), false] : [$report, $stored === false];
@@ -50,9 +55,13 @@ class FixedExpenses
     // Devuelve null si no se intentó y, si se intentó, si se pudo guardar.
     public static function attemptCurrentRate(User $user, string $month): ?bool
     {
-        if ($month !== Carbon::now()->format('Y-m') || ! Cache::add("exchange-rate-attempt:{$user->id}:{$month}", true, 900)) return null;
+        if ($month !== Carbon::now()->format('Y-m') || ! Cache::add("exchange-rate-attempt:{$user->id}:{$month}", true, 900)) {
+            return null;
+        }
         $quote = self::fetchRate();
-        if (! $quote) return false;
+        if (! $quote) {
+            return false;
+        }
         self::storeRate($user, $month, $quote['rate'], 'arq', $quote['quoted_at']);
 
         return true;
@@ -67,8 +76,8 @@ class FixedExpenses
     // queda pendiente y no suma al total: nunca se asume un reparto ni una cotización.
     public static function report(User $user, string $month): array
     {
-        $rate = $user->exchangeRates()->where('currency', 'USD')->where('month', $month)->first();
-        $rows = $user->fixedExpenses()->with(['amounts' => fn ($query) => $query->orderByDesc('effective_from'), 'resource.shares'])->get()
+        $rate = Ledger::exchangeRate($user, $month);
+        $rows = Ledger::fixedExpenses($user)
             ->map(function (FixedExpense $expense) use ($month, $rate) {
                 $amount = $expense->amountFor($month);
                 // Sin recurso vinculado, el gasto es completamente tuyo.

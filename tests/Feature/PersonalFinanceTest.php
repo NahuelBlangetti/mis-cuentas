@@ -28,11 +28,14 @@ class PersonalFinanceTest extends TestCase
 
     public function test_suma_recurrentes_y_gastos_del_mes_por_categoria(): void
     {
-        $this->actingAs($this->user)->post(route('personal.recurring.store'), ['form' => 'recurring', 'name' => 'Alquiler', 'category' => 'housing', 'currency' => 'ARS', 'amount' => '400000', 'effective_from' => '2026-10'])
+        // El mismo formulario carga un recurrente o un gasto de una sola vez; los campos del otro tipo se ignoran.
+        $this->actingAs($this->user)->post(route('personal.expenses.store'), ['form' => 'expense', 'kind' => 'monthly', 'description' => 'Alquiler', 'category' => 'housing', 'currency' => 'ARS', 'amount' => '400000', 'effective_from' => '2026-10', 'date' => '2026-11-15'])
             ->assertSessionHasNoErrors()->assertRedirect(route('personal.index', ['mes' => '2026-10']));
+        $this->assertSame([0, 'Alquiler', '2026-10'], [$this->user->personalExpenses()->count(), PersonalRecurringExpense::sole()->name, PersonalRecurringExpense::sole()->amounts()->sole()->effective_from]);
         $this->recurring('Luz', 'utilities', ['2026-11' => 30000]);
-        $this->post(route('personal.expenses.store'), ['form' => 'expense', 'description' => 'Súper', 'category' => 'food', 'amount' => '85000.50', 'date' => '2026-11-03'])
+        $this->post(route('personal.expenses.store'), ['form' => 'expense', 'kind' => 'once', 'description' => 'Súper', 'category' => 'food', 'amount' => '85000.50', 'date' => '2026-11-03', 'currency' => 'USD', 'effective_from' => '2026-01'])
             ->assertSessionHasNoErrors()->assertRedirect(route('personal.index', ['mes' => '2026-11']));
+        $this->assertSame(2, $this->user->personalRecurringExpenses()->count());
         $this->expense('Verdulería', 'food', 14999.5, '2026-11-10');
         $this->expense('Cine de octubre', 'leisure', 20000, '2026-10-20');
 
@@ -86,10 +89,31 @@ class PersonalFinanceTest extends TestCase
             ->assertSessionHasNoErrors()->assertRedirect(route('personal.index', ['mes' => '2026-10']));
         $this->assertSame(['Farmacia y médico', '12000.00', '2026-10-28'], [$expense->refresh()->description, $expense->amount, $expense->date->toDateString()]);
 
-        $this->post(route('personal.expenses.store'), ['form' => 'expense', 'description' => 'Sin categoría', 'amount' => '1', 'date' => '2026-11-04'])->assertSessionHasErrors('category');
-        $this->post(route('personal.expenses.store'), ['form' => 'expense', 'description' => 'Inventada', 'category' => 'yacht', 'amount' => '1', 'date' => '2026-11-04'])->assertSessionHasErrors('category');
+        $this->post(route('personal.expenses.store'), ['form' => 'expense', 'kind' => 'once', 'description' => 'Sin categoría', 'amount' => '1', 'date' => '2026-11-04'])->assertSessionHasErrors('category');
+        $this->post(route('personal.expenses.store'), ['form' => 'expense', 'kind' => 'once', 'description' => 'Inventada', 'category' => 'yacht', 'amount' => '1', 'date' => '2026-11-04'])->assertSessionHasErrors('category');
         $this->delete(route('personal.expenses.destroy', $expense))->assertRedirect(route('personal.index', ['mes' => '2026-10']));
         $this->assertModelMissing($expense);
+    }
+
+    public function test_al_cargar_un_gasto_se_elige_si_es_de_una_vez_o_de_todos_los_meses(): void
+    {
+        $this->actingAs($this->user)->get(route('personal.index'))->assertOk()
+            ->assertSee('¿Cada cuánto lo pagás?')->assertSee('value="once" checked', false)->assertSee('name="effective_from"', false);
+        $this->get(route('personal.index', ['tipo' => 'recurrente']))->assertOk()->assertSee('value="monthly" checked', false)->assertSee('Guardar gasto recurrente');
+        $expense = $this->expense('Farmacia', 'health', 9000, '2026-11-04');
+        $this->get(route('personal.index', ['editar' => $expense->id]))->assertOk()->assertDontSee('¿Cada cuánto lo pagás?');
+
+        $this->post(route('personal.expenses.store'), ['description' => 'Sin tipo', 'category' => 'other', 'amount' => '1', 'date' => '2026-11-04'])->assertSessionHasErrors('kind');
+        $this->post(route('personal.expenses.store'), ['kind' => 'once', 'description' => 'Sin fecha', 'category' => 'other', 'amount' => '1'])->assertSessionHasErrors('date');
+        $this->post(route('personal.expenses.store'), ['kind' => 'monthly', 'description' => 'Sin mes', 'category' => 'other', 'amount' => '1', 'currency' => 'ARS'])->assertSessionHasErrors('effective_from');
+        $this->post(route('personal.expenses.store'), ['kind' => 'monthly', 'description' => 'Moneda rara', 'category' => 'other', 'amount' => '1', 'currency' => 'EUR', 'effective_from' => '2026-11'])->assertSessionHasErrors('currency');
+        $this->post(route('personal.expenses.store'), ['kind' => 'monthly', 'description' => str_repeat('a', 161), 'category' => 'other', 'amount' => '1', 'currency' => 'ARS', 'effective_from' => '2026-11'])->assertSessionHasErrors('description');
+
+        // Un recurrente que empieza más adelante se muestra desde el mes en curso.
+        $this->post(route('personal.expenses.store'), ['kind' => 'monthly', 'description' => 'Gimnasio', 'category' => 'health', 'amount' => '30000', 'currency' => 'ARS', 'effective_from' => '2027-01'])
+            ->assertSessionHasNoErrors()->assertRedirect(route('personal.index', ['mes' => '2026-11']))->assertSessionHas('success', 'Gasto recurrente agregado: se suma todos los meses desde enero 2027.');
+        $this->assertSame(1, $this->user->personalRecurringExpenses()->count());
+        $this->assertSame(1, $this->user->personalExpenses()->count());
     }
 
     public function test_no_se_pueden_ver_ni_tocar_los_gastos_de_otro_usuario(): void
